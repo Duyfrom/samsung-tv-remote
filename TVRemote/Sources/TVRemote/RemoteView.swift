@@ -314,16 +314,24 @@ private struct IconKey: View {
 private struct AppsGrid: View {
     @EnvironmentObject private var tv: TVController
 
+    /// The grid shows only these (one tile per name); Claude can still open any installed app.
+    private static let shown: Set<String> = ["youtube", "netflix", "fpt play", "web browser"]
+
+    private var apps: [InstalledApp] {
+        var seen = Set<String>()
+        return tv.apps.filter { Self.shown.contains($0.name.lowercased()) && seen.insert($0.name.lowercased()).inserted }
+    }
+
     var body: some View {
         ScrollView {
-            if tv.apps.isEmpty {
+            if apps.isEmpty {
                 Text(tv.isConnected ? "Loading apps…" : "Apps appear once the TV is connected")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .frame(maxWidth: .infinity, minHeight: 120)
             } else {
                 LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 6), count: 4), spacing: 8) {
-                    ForEach(tv.apps) { app in
+                    ForEach(apps) { app in
                         Button { tv.launch(app) } label: {
                             VStack(spacing: 4) {
                                 AppIcon(app: app, image: tv.icon(for: app))

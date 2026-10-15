@@ -70,3 +70,14 @@ without launching (WS launch); a pending connect continuation leaked on reconnec
 - [ ] User: run the installer on a Windows PC (SmartScreen: More info → Run anyway) and report anything odd
 - [x] Security review follow-ups: tool-result sanitising + http(s)-only open_url + local-address-only unverified TLS
       (canonical dotted-quad, same host the URL layer connects to); JS tests 23, Swift XCTest 4
+
+## Windows app v2: Go rewrite (replaces Electron)
+- [x] Electron v1: 106 MB installer / 374 MB installed, 99.8% bundled Chromium + Node (our code: 176 KB)
+- [x] Go: tv.go, tools.go, store.go, controller.go, chat.go, mcp.go, app.go (platform-neutral, tested on macOS)
+- [x] gui_windows.go: own Win32 window (hidden start, close-to-tray) + system WebView2 (go-webview2/edge, pure Go)
+      + fyne systray; UI embedded, served at https://app.tvremote/; bridge.js replaces the Electron preload
+- [x] Tests: fake TV, fake Claude API, -race clean; live: real TV (mute, rapid volume, icons) + real Haiku chat
+- [x] UI + bridge.js rendered in Chromium against the Go core and the real TV (status, 29 icons, chat, settings)
+- [x] Single exe 8.1 MB (icon, PerMonitorV2 manifest, version info); NSIS installer 2.7 MB; `mcp` arg = MCP server
+- [ ] User: run on a Windows PC — the window/tray/WebView2 layer is the only part not executed here
+

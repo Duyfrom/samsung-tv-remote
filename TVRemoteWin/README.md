@@ -1,99 +1,88 @@
 # TV Remote for Windows
 
-Remote for 2016+ Samsung Tizen TVs (built and tested on a UA49K5500): D-pad, volume, channel, media keys,
-your TV's apps with their real icons, number pad, typing and touchpad, power on/off (Wake-on-LAN over Wi-Fi),
-a **Claude chat bar** ("mở FPT Play", "play the latest MKBHD video"), recordable **shortcuts**, and an **MCP server**
-so Claude Code / Claude Desktop can control the TV too.
+Remote for 2016+ Samsung Tizen TVs (built and tested on a UA49K5500): D-pad, volume, channel, media keys, your TV's
+apps with their real icons, number pad, typing and touchpad, power on/off (Wake-on-LAN over Wi-Fi), a **Claude chat
+bar** ("mở FPT Play", "play the latest MKBHD video"), recordable **shortcuts**, a tray icon, and an **MCP server** so
+Claude Code / Claude Desktop can control the TV too.
 
-It is the Electron twin of the macOS menu bar app in `../TVRemote` — same protocol, same tools, same
-shortcuts file format. It also runs on macOS and Linux (`npm start`).
+**One 8 MB exe, 2.7 MB installer.** Written in Go; the window is the Edge WebView2 that ships with Windows, so no
+browser or runtime is bundled. (v1 was Electron: a 106 MB installer, 374 MB installed.)
 
 ## Install (Windows 10/11, 64-bit)
 
-1. Download **`TV-Remote-Setup-1.0.0.exe`** from the repo's *Releases* page and run it. One click, no admin rights;
-   it installs per user, adds Start menu and desktop shortcuts, and starts the app.
-2. The installer isn't code-signed, so Windows SmartScreen says *"Windows protected your PC"*:
-   click **More info → Run anyway**. (Checksum is in the release notes.)
-3. Windows Firewall may ask to allow TV Remote on private networks — allow it, it needs the local network.
-4. First start scans your network and picks the TV (or pick it in ⚙ Settings). Closing the window keeps the app in the
-   system tray; right-click the tray icon for *Turn TV on/off* and *Quit*.
+1. Download **`TV-Remote-Setup-2.0.0.exe`** from *Releases* and run it — per user, no admin rights, adds Start menu and
+   desktop shortcuts. Or just run the portable **`TV-Remote-2.0.0-portable.exe`** (the same app, one file).
+2. Not code-signed: SmartScreen says *"Windows protected your PC"* → **More info → Run anyway**.
+3. Allow it through Windows Firewall on private networks. It finds the TV itself (or pick it in ⚙ Settings).
+4. On the TV: *Settings › General › External Device Manager › Device Connection Manager* → **Access Notification Off**,
+   so the TV doesn't ask to Allow every connection.
 
-On the TV, *Settings › General › External Device Manager › Device Connection Manager*: set **Access Notification**
-to Off (or First Time Only) so the TV doesn't ask to Allow on every connection.
+Closing the window keeps it in the tray (click: show/hide; right-click: *Turn TV on/off*, *Quit*). Needs the WebView2
+Runtime, which Windows 11 and most Windows 10 PCs have; if it's missing, the app says so and opens Microsoft's download.
 
-## Claude chat
+## Claude chat and shortcuts
 
-The bar at the bottom sends what you type to **Claude Haiku 5.5** (`claude-haiku-5-5`, low effort), which acts through
-the same tools as the MCP server. The API key is found, in order, in:
+The bar at the bottom sends what you type to **Claude Haiku 5.5** (`claude-haiku-5-5`, low effort) with the TV tools.
+The API key is read when needed from opencode's `auth.json` (`%USERPROFILE%\.local\share\opencode`, `%APPDATA%\opencode`
+or `%LOCALAPPDATA%\opencode`), else a key pasted in ⚙ Settings (encrypted with Windows DPAPI), else `ANTHROPIC_API_KEY`.
 
-1. opencode's auth store — `%USERPROFILE%\.local\share\opencode\auth.json` (also `%APPDATA%\opencode`, `%LOCALAPPDATA%\opencode`),
-2. a key pasted into ⚙ Settings (encrypted with Windows DPAPI via Electron `safeStorage`),
-3. the `ANTHROPIC_API_KEY` environment variable.
-
-**Shortcuts:** the TV's screen can't be read, so getting *inside* an app (a channel in FPT Play) is blind. Press **●**,
-do it once with the remote, name it "VTV1" — it becomes a chip above the chat and Claude can run it by name.
-They live in `%APPDATA%\TV Remote\shortcuts.json`.
+The TV's screen can't be read, so getting *inside* an app (a channel in FPT Play) is blind. **Shortcuts** fix that: press
+**●**, do it once with the remote, name it "VTV1" — it becomes a chip above the chat and Claude runs it by name.
+Settings and shortcuts live in `%APPDATA%\TV Remote` (same format as the macOS app).
 
 ## MCP server
 
-⚙ Settings shows the exact command for your install. For the installed app it is:
+The same exe, with `mcp`:
 
 ```
-claude mcp add tv-remote -s user -e ELECTRON_RUN_AS_NODE=1 -- "%LOCALAPPDATA%\Programs\TV Remote\TV Remote.exe" "%LOCALAPPDATA%\Programs\TV Remote\resources\app\src\mcp\server.js"
+claude mcp add tv-remote -s user -- "%LOCALAPPDATA%\Programs\TV Remote\TV Remote.exe" mcp
 ```
 
-(the app's own executable runs the script as plain Node), or with Node installed: `claude mcp add tv-remote -s user -- node <repo>\TVRemoteWin\src\mcp\server.js`.
-Tools: `press_keys`, `type_text`, `list_apps`, `launch_app`, `play_youtube`, `open_url`, `set_volume`, `mute`, `power`,
-`get_status`, `wait`, `list_shortcuts`, `run_shortcut`, `save_shortcut`.
+(⚙ Settings shows the exact path.) Tools: `press_keys`, `type_text`, `list_apps`, `launch_app`, `play_youtube`, `open_url`,
+`set_volume`, `mute`, `power`, `get_status`, `wait`, `list_shortcuts`, `run_shortcut`, `save_shortcut`. The TV comes from
+`$TV_HOST`, the app's saved TV, or a network scan. `go run . mcp` runs it on macOS/Linux too.
 
-## Develop / build
+## Build
 
 ```bash
-npm install
-npm start                 # run the app (any OS)
-npm test                  # unit tests + a fake-TV websocket/REST/UPnP integration test
-npm run mcp               # MCP server on stdio
-npm run dist              # Windows installer → dist/TV-Remote-Setup-<version>.exe (works from macOS/Linux too)
-npm run icons             # regenerate build/*.png|ico from ../TVRemote's icon artwork (macOS + Pillow)
+./build.sh            # go test, then dist/TV Remote.exe + dist/TV-Remote-Setup-<version>.exe (needs Go + makensis)
+go test ./...         # unit tests + a fake TV (websocket/REST/UPnP) + a fake Claude API
+TVREMOTE_LIVE=1 go test -run TestLive -v .               # drive the real TV (TVREMOTE_LIVE_CHAT=1 adds Claude)
+build/make-icons.sh   # only when the icon or version changes: build/*.ico + rsrc_windows_amd64.syso
 ```
 
-Development-only hooks (never loaded from a packaged build): `TVREMOTE_SHOT=/tmp/shot` renders every tab to PNG,
-`TVREMOTE_CHAT="msg || msg"` runs chat messages through the real code path, `TVREMOTE_SELFTEST=1|power` drives the
-controller against the real TV (`power` also switches it off and on).
-
 ```
-src/core      protocol, no Electron: channel (websocket), rest, upnp, discovery, wol, youtube/DIAL, tools, shortcuts
-src/main      Electron main: controller (connection + state), chat (Claude loop), tray/window, IPC
-src/renderer  the UI (plain DOM)
-src/mcp       MCP server (stdio) on src/core
+tv.go          protocol: websocket channel, REST, UPnP volume, discovery, Wake-on-LAN, DIAL/YouTube, keys
+tools.go       the 14 tools shared by the chat and MCP        store.go   settings + shortcuts files
+controller.go  connection state, retry, power, icons, recording
+chat.go        Claude Haiku tool loop                         mcp.go     MCP server (stdio)
+app.go         UI calls → controller (platform-neutral)       gui_windows.go  window, WebView2, tray, DPAPI, login item
+ui/            the remote's HTML/CSS/JS (bridge.js talks to Go)
 ```
 
-## Behaviour worth knowing (all found on the real TV)
+## Behaviour worth knowing (found on the real TV)
 
-- The TV drops a command if the client disconnects within ~0.3 s of sending it, and drops remote keys while a burst
-  of icon requests is in flight — the app keeps one connection open and fetches icons one at a time (cached in
-  `%APPDATA%\TV Remote\icons`).
-- Quick repeated volume keys are dropped while the TV's volume bar animates in, so volume ± uses UPnP absolute volume.
-- REST app launch answers "ok" for native apps (Web Browser) without opening them — launches go over the websocket.
+- The TV drops a command if the client disconnects within ~0.3 s, and drops keys during a burst of icon requests —
+  one connection stays open and icons are fetched one at a time (cached in `%APPDATA%\TV Remote\icons`).
+- Quick repeat volume keys are dropped while the TV's volume bar animates in, so volume ± uses UPnP absolute volume.
+- REST app launch says "ok" for native apps (Web Browser) without opening them — launches go over the websocket.
 - YouTube videos launch through DIAL (`POST :8080/ws/app/YouTube`, `v=<id>`); this TV then shows "Who's watching?",
   which `play_youtube` answers with OK on the first profile.
-- After `KEY_POWER` the TV keeps its network up ~25 s; the power button sends the key in that window and
-  Wake-on-LAN after it. Wake packets go out of **every** network adapter (Wi-Fi, Ethernet, VPN, virtual switches).
-- Compact layout is used automatically on screens shorter than ~790 px (1080p laptops at 150% scaling).
+- After `KEY_POWER` the TV keeps its network up ~25 s: the power button sends the key in that window and Wake-on-LAN
+  after it, from every network adapter.
 
 ## Security notes
 
-- Claude only ever gets the TV tools (keys, apps, volume, power, URLs, shortcuts). Text coming back from the internet
-  (video titles, channel names) is flattened and length-capped before the model sees it, the instructions tell the
-  model to treat it as data, and `open_url` accepts only `http(s)` links.
-- Token-based TVs (2017+) use `wss://:8002` with a self-signed certificate, so that connection is encrypted but not
-  authenticated; the app refuses to make it to anything but a local-network address. The UA49K5500 uses plain
-  `ws://:8001` and never takes that path. Use token TVs on a network you trust.
-- The API key is read from opencode's file or the system keystore at call time and only ever sent to `api.anthropic.com`.
+- Claude only gets the TV tools. Text from the internet (video titles, channel names) is flattened and length-capped
+  before the model sees it, the instructions say it's data, and `open_url` takes only `http(s)` links.
+- Token TVs (2017+) use `wss://:8002` with a self-signed certificate — encrypted, not authenticated — so that connection
+  is refused for anything but a canonical local-network IPv4 address. The UA49K5500 uses plain `ws://:8001`.
+- The UI is served from the exe to WebView2 under `https://app.tvremote/` with dev tools, context menu, zoom and browser
+  shortcuts off.
 
 ## Status
 
-Everything except the installer wrapper was exercised against the real UA49K5500 from macOS (same Electron app and
-code): connect, keys, volume/mute, apps + icons, chat with shortcuts, MCP over stdio, DIAL YouTube. The Wake-on-LAN
-sender was checked for valid packets on every adapter locally. The Windows installer is built from macOS and its
-contents verified (64-bit exe, icons, version info, sources) but **has not been run on a Windows machine yet**.
+Everything except the Windows window code ran against the real UA49K5500 from macOS: protocol, controller, chat with
+Claude, MCP, and the UI itself (rendered in Chromium through `bridge.js` against the Go core). The Windows build
+compiles and its resources (icon, DPI manifest, version) and installer payload are verified, but the window, tray and
+WebView2 hosting **have not been run on a Windows PC yet**.
