@@ -20,5 +20,6 @@ let package = Package(
         .executableTarget(name: "tvctl", dependencies: ["TVKit"]),
         // MCP server (stdio) exposing the TV tools to Claude Code / Claude Desktop.
         .executableTarget(name: "tvmcp", dependencies: ["TVKit"]),
+        .testTarget(name: "TVKitTests", dependencies: ["TVKit"]),
     ]
 )

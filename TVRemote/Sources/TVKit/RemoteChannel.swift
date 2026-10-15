@@ -105,7 +105,7 @@ public final class RemoteChannel: NSObject, URLSessionWebSocketDelegate, @unchec
         // Samsung TVs present a self-signed certificate on :8002, so there is no CA chain to validate and the
         // connection is not authenticated. That is only acceptable (and the token only safe to send) on the
         // local network, so refuse it for anything else.
-        if transport == .secure, !Self.isLocalAddress(host) {
+        if transport == .secure, !(Self.isLocalAddress(host) && url.host == host) {
             throw ChannelError.closed("Refusing an unverified TLS connection to a non-local address.")
         }
         disconnect()
@@ -119,10 +119,18 @@ public final class RemoteChannel: NSObject, URLSessionWebSocketDelegate, @unchec
         }
     }
 
-    /// RFC 1918, link-local and loopback IPv4 addresses.
+    /// RFC 1918, link-local and loopback IPv4 addresses, in canonical dotted-quad form only. Leading zeros
+    /// (read as octal by `inet_aton`/`getaddrinfo`), hex, short forms and plain integers are rejected, so the
+    /// address approved here is the address that gets connected to.
     static func isLocalAddress(_ host: String) -> Bool {
-        let p = host.split(separator: ".").compactMap { Int($0) }
-        guard p.count == 4, p.allSatisfy({ (0...255).contains($0) }) else { return false }
+        let parts = host.split(separator: ".", omittingEmptySubsequences: false)
+        guard parts.count == 4 else { return false }
+        var p: [Int] = []
+        for part in parts {
+            guard (1...3).contains(part.count), part.allSatisfy({ $0.isASCII && $0.isWholeNumber }),
+                  part == "0" || part.first != "0", let value = Int(part), value <= 255 else { return false }
+            p.append(value)
+        }
         return p[0] == 10 || p[0] == 127 || (p[0] == 172 && (16...31).contains(p[1]))
             || (p[0] == 192 && p[1] == 168) || (p[0] == 169 && p[1] == 254)
     }

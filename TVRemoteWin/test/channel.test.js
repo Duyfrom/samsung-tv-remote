@@ -168,15 +168,23 @@ test('rest + upnp against a fake TV', async () => {
 });
 
 test('channel: unverified TLS (wss :8002 + token) is refused for non-local addresses', async () => {
-  assert.equal(isLocalAddress('192.168.50.25'), true);
-  assert.equal(isLocalAddress('10.0.0.7'), true);
-  assert.equal(isLocalAddress('172.16.4.2'), true);
-  assert.equal(isLocalAddress('172.32.0.1'), false);
-  assert.equal(isLocalAddress('8.8.8.8'), false);
-  assert.equal(isLocalAddress('tv.example.com'), false);
-  const remote = new RemoteChannel({ host: '8.8.8.8', transport: 'secure', token: 'SECRET' });
-  await assert.rejects(remote.connect(), (e) => e instanceof ChannelError && e.kind === 'insecure');
-  // plain ws to a non-local host is a different (unencrypted, tokenless) matter and is not blocked here
+  for (const ok of ['192.168.50.25', '10.0.0.7', '172.16.4.2', '172.31.255.254', '169.254.1.1', '127.0.0.1']) {
+    assert.equal(isLocalAddress(ok), true, ok);
+  }
+  // Public, or written so that the URL layer / OS resolver would read a different address than a naive check.
+  for (const bad of [
+    '172.32.0.1', '8.8.8.8', 'tv.example.com', 'localhost', '::1', '[::1]', '',
+    '010.1.1.1', '0172.16.0.1', '192.168.050.1', '0xC0.0xA8.0.1', '192.168.1', '127.1', '3232235777',
+    '192.168.1.1 ', ' 192.168.1.1', '192.168.1.1\n', '192.168.1.256', '192.168.1.1.evil.com',
+    '192.168.0.1@8.8.8.8', '192.168.0.1#.8.8.8.8', '192.168.0.1/x',
+  ]) {
+    assert.equal(isLocalAddress(bad), false, JSON.stringify(bad));
+  }
+  for (const host of ['8.8.8.8', '010.1.1.1', '192.168.0.1@8.8.8.8', 'tv.example.com']) {
+    const remote = new RemoteChannel({ host, transport: 'secure', token: 'SECRET' });
+    await assert.rejects(remote.connect(), (e) => e instanceof ChannelError && e.kind === 'insecure', host);
+  }
+  // A local address is let through (and here simply finds nothing listening).
   const lan = new RemoteChannel({ host: '127.0.0.1', transport: 'secure', port: 1 });
   await assert.rejects(lan.connect(), (e) => !(e instanceof ChannelError && e.kind === 'insecure'));
 });

@@ -68,3 +68,5 @@ without launching (WS launch); a pending connect continuation leaked on reconnec
       interrupting the user)
 - [x] electron-builder (from macOS): TV-Remote-Setup-1.0.0.exe, NSIS one-click per-user; exe has the icon + version info
 - [ ] User: run the installer on a Windows PC (SmartScreen: More info → Run anyway) and report anything odd
+- [x] Security review follow-ups: tool-result sanitising + http(s)-only open_url + local-address-only unverified TLS
+      (canonical dotted-quad, same host the URL layer connects to); JS tests 23, Swift XCTest 4

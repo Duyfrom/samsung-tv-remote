@@ -1,13 +1,18 @@
 'use strict';
 
 const { EventEmitter } = require('node:events');
+const net = require('node:net');
 const WebSocket = require('ws');
 
-/** RFC 1918, link-local and loopback IPv4 addresses: the only hosts we will talk unverified TLS to. */
+/**
+ * RFC 1918, link-local and loopback IPv4 addresses: the only hosts we will talk unverified TLS to.
+ * Canonical dotted-quad only. `net.isIPv4` rejects what the URL layer and the OS resolver would read
+ * differently (leading zeros = octal, hex, short forms, plain integers, trailing junk), so the address we
+ * approve is the address that gets connected to.
+ */
 function isLocalAddress(host) {
-  const m = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(host);
-  if (!m) return false;
-  const [a, b] = [Number(m[1]), Number(m[2])];
+  if (typeof host !== 'string' || !net.isIPv4(host)) return false;
+  const [a, b] = host.split('.').map(Number);
   return a === 10 || a === 127 || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168) || (a === 169 && b === 254);
 }
 
@@ -63,9 +68,14 @@ class RemoteChannel extends EventEmitter {
       // Samsung TVs present a self-signed certificate on :8002, so there is no CA chain to validate and the
       // connection is not authenticated. That is only acceptable (and the token only safe to send) on the
       // local network, so refuse it for anything else.
-      if (this.transport === 'secure' && !isLocalAddress(this.host)) {
-        reject(new ChannelError('insecure', 'Refusing an unverified TLS connection to a non-local address. Use the TV\'s LAN IP.'));
-        return;
+      if (this.transport === 'secure') {
+        // Judge the host the URL parser will really connect to, not just the string we were given.
+        let target = null;
+        try { target = new URL(this.url).hostname; } catch { /* refused below */ }
+        if (target !== this.host || !isLocalAddress(target)) {
+          reject(new ChannelError('insecure', 'Refusing an unverified TLS connection to a non-local address. Use the TV\'s LAN IP.'));
+          return;
+        }
       }
       const ws = new WebSocket(this.url, { rejectUnauthorized: false, handshakeTimeout: 10_000, perMessageDeflate: false });
       this.ws = ws;
