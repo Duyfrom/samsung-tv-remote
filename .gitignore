@@ -1,0 +1,16 @@
+# Dependencies and third-party tools (reinstall with `npm install`; REA is cloned from github.com/morluto/rea)
+node_modules/
+rea/
+tools/
+
+# Samsung Smart View APK/MSI binaries used for reverse engineering — not redistributed
+apk/
+
+# Swift build output
+TVRemote/.build/
+TVRemote/build/
+
+# Empty REA stderr captures
+evidence/*.err
+
+.DS_Store
