@@ -18,10 +18,10 @@ import (
 
 // ToolHost runs the tools and owns the TV connection: the app's Controller or the MCP server's session.
 type ToolHost interface {
-	ResolvedHost() (string, error)     // the TV's IP; error when none is known
-	ReadyChannel() (*Channel, error)   // connected channel (connects first); error when the TV is off
-	InstalledApps() ([]App, error)     // in the user's Smart Hub order
-	SetPower(on bool) (string, error)  // Wake-on-LAN / power key; returns what happened
+	ResolvedHost() (string, error)    // the TV's IP; error when none is known
+	ReadyChannel() (*Channel, error)  // connected channel (connects first); error when the TV is off
+	InstalledApps() ([]App, error)    // in the user's Smart Hub order
+	SetPower(on bool) (string, error) // Wake-on-LAN / power key; returns what happened
 }
 
 const toolsJSON = `[

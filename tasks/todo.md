@@ -83,4 +83,11 @@ without launching (WS launch); a pending connect continuation leaked on reconnec
 - [x] 2.0.1: one http(s) gate for every path into the TV browser (open_url, browser launch link, shortcut
       open_url steps at save and run) in Go and Swift; installer upgrades v1 in place (removes its Electron runtime,
       its "TV Remote 1.0.0" uninstall entry and Chromium profile; keeps settings/shortcuts)
+- [x] Wake after long standby: root cause = TV only wakes on a unicast magic packet; the ARP entry expires ~20 min
+      after power-off so only broadcasts went out. Verified: broadcasts for 98 s did nothing, unicast with a pinned
+      ARP entry woke it in 4.3 s. Fix: "Wake from long standby" setting (Mac LaunchDaemon re-pinning every 60 s,
+      verified running; Windows persistent netsh neighbor via UAC, built + unit-tested, not run on Windows)
+- [x] Repo made public (history scanned first: no secrets); Check for updates in both apps: newest mac-v*/windows-v*
+      release, SHA-256 verified against the published .sha256; Mac swaps the bundle after quit + relaunches;
+      Windows runs the installer with /S (installer relaunches the app when silent). Mac 1.1.0, Windows 2.0.2
 

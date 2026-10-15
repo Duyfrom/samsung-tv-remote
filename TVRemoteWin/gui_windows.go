@@ -9,14 +9,19 @@ import (
 	"embed"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"io/fs"
+	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"syscall"
+	"time"
 	"unsafe"
 
 	"fyne.io/systray"
@@ -52,8 +57,8 @@ const (
 )
 
 var (
-	user32  = windows.NewLazySystemDLL("user32.dll")
-	dwmapi  = windows.NewLazySystemDLL("dwmapi.dll")
+	user32            = windows.NewLazySystemDLL("user32.dll")
+	dwmapi            = windows.NewLazySystemDLL("dwmapi.dll")
 	pRegisterClassEx  = user32.NewProc("RegisterClassExW")
 	pCreateWindowEx   = user32.NewProc("CreateWindowExW")
 	pDefWindowProc    = user32.NewProc("DefWindowProcW")
@@ -146,14 +151,23 @@ func runGUI(hidden bool) {
 
 	exe, _ := os.Executable()
 	gui.app = newCore(platform{
-		SavedKey:     savedKey,
-		SaveKey:      saveKey,
-		LoginItem:    func() bool { v, _ := runKey(func(k registry.Key) (string, error) { s, _, err := k.GetStringValue("TV Remote"); return s, err }); return strings.Contains(v, exe) },
-		SetLoginItem: func(on bool) error { return setLoginItem(on, exe) },
-		Quit:         func() { pPostMessage.Call(gui.hwnd, wmQuit, 0, 0) },
-		Resize:       func(h float64) { onUI(func() { gui.cssHeight = h; fitWindow() }) },
-		MCPCommand:   `claude mcp add tv-remote -s user -- "` + exe + `" mcp`,
+		SavedKey: savedKey,
+		SaveKey:  saveKey,
+		LoginItem: func() bool {
+			v, _ := runKey(func(k registry.Key) (string, error) { s, _, err := k.GetStringValue("TV Remote"); return s, err })
+			return strings.Contains(v, exe)
+		},
+		SetLoginItem:  func(on bool) error { return setLoginItem(on, exe) },
+		Quit:          func() { pPostMessage.Call(gui.hwnd, wmQuit, 0, 0) },
+		Resize:        func(h float64) { onUI(func() { gui.cssHeight = h; fitWindow() }) },
+		MCPCommand:    `claude mcp add tv-remote -s user -- "` + exe + `" mcp`,
+		WakeFix:       func() bool { return wakeFixOn.Load() },
+		SetWakeFix:    setWakeFix,
+		UpdatePrefix:  "windows-v",
+		UpdateAsset:   func(v string) string { return "TV-Remote-Setup-" + v + ".exe" },
+		InstallUpdate: installUpdate,
 	})
+	go func() { host, mac := gui.app.tv.HostMac(); wakeFixOn.Store(wakeFixEnabled(host, mac)) }()
 
 	createWindow()
 	if !embedWebView() {
@@ -465,6 +479,71 @@ func setPowerItem(connected bool) {
 	} else {
 		powerItem.SetTitle("Turn TV on")
 	}
+}
+
+// ---- wake from long standby (see pinCommand) ----------------------------------------------------------
+
+var wakeFixOn atomic.Bool
+
+// wakeFixEnabled: is the TV's address pinned? Get-NetNeighbor's output isn't localized (netsh's and arp's are).
+func wakeFixEnabled(host, mac string) bool {
+	hw, err := net.ParseMAC(strings.ReplaceAll(mac, "-", ":"))
+	if !isLocalAddress(host) || err != nil {
+		return false
+	}
+	cmd := exec.Command("powershell", "-NoProfile", "-NonInteractive", "-Command",
+		"(Get-NetNeighbor -AddressFamily IPv4 -IPAddress '"+host+"' -State Permanent -ErrorAction SilentlyContinue).LinkLayerAddress")
+	hideWindow(cmd)
+	out, _ := cmd.Output()
+	return strings.Contains(strings.ToLower(string(out)), strings.ReplaceAll(hw.String(), ":", "-"))
+}
+
+func setWakeFix(on bool) error {
+	host, mac := gui.app.tv.HostMac()
+	idx, err := interfaceFor(host)
+	if err != nil {
+		return err
+	}
+	cmdline, err := pinCommand(on, idx, host, mac)
+	if err != nil {
+		return err
+	}
+	// One UAC prompt; the entry is persistent, so it survives restarts.
+	if err := windows.ShellExecute(windows.Handle(gui.hwnd), utf16("runas"), utf16("cmd.exe"), utf16("/c "+cmdline), nil, 0); err != nil {
+		if err == windows.ERROR_CANCELLED {
+			return errors.New("Cancelled.")
+		}
+		return err
+	}
+	for range 30 {
+		time.Sleep(500 * time.Millisecond)
+		if wakeFixEnabled(host, mac) == on {
+			wakeFixOn.Store(on)
+			return nil
+		}
+	}
+	return errors.New("Windows didn't apply the change.")
+}
+
+// ---- updates ------------------------------------------------------------------------------------
+
+// installUpdate runs the verified installer silently; it replaces this exe (the installer closes running
+// copies) and starts the new version.
+func installUpdate(u *update) error {
+	name := "TV-Remote-Setup-" + u.Version + ".exe"
+	file, err := fetchUpdate(u, filepath.Join(os.TempDir(), "TV Remote update"), name)
+	if err != nil {
+		return err
+	}
+	if _, err := os.Stat(file); err != nil {
+		// Real-time protection can remove a just-downloaded unsigned installer.
+		return errors.New("Windows removed the downloaded installer (Microsoft Defender may have flagged it). Update by building from source, or report the file to Microsoft as a false positive")
+	}
+	if err := windows.ShellExecute(windows.Handle(gui.hwnd), utf16("open"), utf16(file), utf16("/S"), nil, 1); err != nil {
+		return fmt.Errorf("couldn't start the installer: %w", err)
+	}
+	time.AfterFunc(800*time.Millisecond, func() { pPostMessage.Call(gui.hwnd, wmQuit, 0, 0) })
+	return nil
 }
 
 // ---- login item and API key ---------------------------------------------------------------------

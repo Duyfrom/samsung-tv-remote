@@ -6,7 +6,7 @@ import (
 	"slices"
 )
 
-const version_ = "2.0.1"
+const version_ = "2.0.2"
 
 func main() {
 	if len(os.Args) > 1 && os.Args[1] == "mcp" {

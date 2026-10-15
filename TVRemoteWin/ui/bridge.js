@@ -31,7 +31,7 @@
   };
   for (const method of ['send', 'sendText', 'movePointer', 'click', 'launch', 'setVolume', 'togglePower', 'startRecording',
     'stopRecording', 'runShortcut', 'deleteShortcut', 'scan', 'select', 'setHost', 'setMac', 'chatSend', 'chatClear',
-    'setOpenAtLogin', 'saveApiKey', 'quit', 'resize']) {
+    'setOpenAtLogin', 'saveApiKey', 'setWakeFix', 'checkUpdate', 'installUpdate', 'quit', 'resize']) {
     tv[method] = (...args) => call(method, ...args);
   }
   window.tv = tv;

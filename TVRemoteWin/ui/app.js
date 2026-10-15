@@ -40,6 +40,8 @@ let appsKey = '';
 let chatKey = '';
 let chipsKey = '';
 let foundKey = '';
+let wakeBusy = false;
+let updateNote = '';
 
 // --- header & remote ----------------------------------------------------------------------------
 
@@ -215,6 +217,10 @@ function renderSettings() {
     login.checked = extras.openAtLogin;
     login.disabled = !extras.packaged;
     $('#login-note').classList.toggle('hidden', extras.packaged);
+    $('#update-note').textContent = updateNote || `Version ${extras.version}`;
+    const wake = $('#wake-toggle');
+    wake.checked = !!extras.wakeFix;
+    wake.disabled = wakeBusy || !extras.wakeFixSupported || !state.host || !state.mac;
     $('#key-input').disabled = !extras.keyEncryptable;
     $('#key-save').disabled = !extras.keyEncryptable;
   }
@@ -329,6 +335,56 @@ function wire() {
   $('#mac-input').addEventListener('change', (e) => window.tv.setMac(e.target.value));
   $('#scan-btn').addEventListener('click', () => window.tv.scan());
   $('#login-toggle').addEventListener('change', async (e) => { extras = await window.tv.setOpenAtLogin(e.target.checked); renderAll(); });
+  $('#wake-toggle').addEventListener('change', async (e) => {
+    const error = $('#wake-error');
+    wakeBusy = true;
+    error.classList.add('hidden');
+    renderAll();
+    try {
+      extras = await window.tv.setWakeFix(e.target.checked);
+    } catch (err) {
+      if (err.message !== 'Cancelled.') { error.textContent = err.message; error.classList.remove('hidden'); }
+    } finally {
+      wakeBusy = false;
+      renderAll();
+    }
+  });
+  $('#update-check').addEventListener('click', async () => {
+    const check = $('#update-check');
+    const install = $('#update-install');
+    check.disabled = true;
+    install.classList.add('hidden');
+    updateNote = 'Checking…';
+    renderAll();
+    try {
+      const { current, update } = await window.tv.checkUpdate();
+      if (update) {
+        updateNote = `Version ${update.version} is available (you have ${current}).`;
+        install.textContent = `Update to ${update.version}`;
+        install.classList.remove('hidden');
+      } else {
+        updateNote = `You're up to date (${current}).`;
+      }
+    } catch (err) {
+      updateNote = `Couldn't check: ${err.message}`;
+    } finally {
+      check.disabled = false;
+      renderAll();
+    }
+  });
+  $('#update-install').addEventListener('click', async () => {
+    const install = $('#update-install');
+    install.disabled = true;
+    updateNote = 'Downloading and checking the update… the app restarts when it is installed.';
+    renderAll();
+    try {
+      await window.tv.installUpdate();
+    } catch (err) {
+      updateNote = `Update failed: ${err.message}`;
+      install.disabled = false;
+      renderAll();
+    }
+  });
   $('#key-save').addEventListener('click', async () => {
     extras = await window.tv.saveApiKey($('#key-input').value);
     $('#key-input').value = '';

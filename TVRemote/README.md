@@ -49,6 +49,13 @@ On the TV, *Settings › General › External Device Manager › Device Connecti
 set **Access Notification** to Off (or First Time Only) and make sure **Mac Remote** is allowed,
 otherwise the TV asks to Allow on every connection.
 
+## Updates
+
+⚙ Settings → **Check for updates** looks for the newest `mac-v*` release on GitHub, downloads the zipped app, checks
+it against the published `.sha256` and its bundle id, swaps it into place after quitting and starts it again.
+`scripts/build-app.sh` makes the release files (`build/TV-Remote-mac-<version>.zip` + `.sha256`); bump
+`CFBundleShortVersionString` in `Support/Info.plist` and publish them under the tag `mac-vX.Y.Z`. (Apple Silicon build.)
+
 ## What it does
 
 | Feature | How (verified on the UA49K5500) |
@@ -88,6 +95,11 @@ TV_DEBUG=1 tvctl key mute           # print WebSocket traffic
   events, so "what's on screen" can't be read from the network; `get_status` reports power, volume, mute and
   which Smart Hub app is in front.
 - Port 8002 accepts TLS but this firmware never issues a token; plain 8001 is used.
+- After ~20 minutes off, the TV ignores broadcast wake packets and only wakes on one sent straight to its MAC, which
+  needs the computer to still know the TV's address – and it forgets it once the TV stops answering. **Wake from long
+  standby** (Settings) pins it: a small root LaunchDaemon that re-pins it every minute (restarts and Wi-Fi reconnects
+  clear it), installed once with your admin password. Keep *Power On with Mobile* on in the TV's network settings
+  (it keeps the TV on Wi-Fi while off).
 - After `KEY_POWER` the TV keeps its network up for ~25 s; the app sends the power key in that window and
   Wake-on-LAN after it.
 

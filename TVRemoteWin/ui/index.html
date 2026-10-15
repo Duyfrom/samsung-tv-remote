@@ -148,10 +148,18 @@
     <h3>Power on</h3>
     <input id="mac-input" type="text" placeholder="TV MAC address (for Wake-on-LAN)" spellcheck="false">
     <p class="note">Filled in automatically from the TV. The power button sends a Wake-on-LAN packet when the TV is off.</p>
+    <label class="toggle"><input id="wake-toggle" type="checkbox"><span>Wake from long standby</span></label>
+    <p class="note">After about 20 minutes off, this TV only wakes on a packet sent straight to it, so the PC has to keep its address. Turning this on pins it (asks for administrator permission once).</p>
+    <p id="wake-error" class="note error hidden"></p>
 
     <h3>App</h3>
     <label class="toggle"><input id="login-toggle" type="checkbox"><span>Open at login</span></label>
     <p id="login-note" class="note hidden">Available in the installed app.</p>
+    <div class="field-row update-row">
+      <button id="update-check" class="small-btn">Check for updates</button>
+      <button id="update-install" class="small-btn hidden">Update</button>
+    </div>
+    <p id="update-note" class="note"></p>
 
     <h3>Claude</h3>
     <div class="kv"><span>Chat model</span><b id="model-name"></b></div>

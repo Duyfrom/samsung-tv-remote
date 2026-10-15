@@ -122,7 +122,7 @@ public final class RemoteChannel: NSObject, URLSessionWebSocketDelegate, @unchec
     /// RFC 1918, link-local and loopback IPv4 addresses, in canonical dotted-quad form only. Leading zeros
     /// (read as octal by `inet_aton`/`getaddrinfo`), hex, short forms and plain integers are rejected, so the
     /// address approved here is the address that gets connected to.
-    static func isLocalAddress(_ host: String) -> Bool {
+    public static func isLocalAddress(_ host: String) -> Bool {
         let parts = host.split(separator: ".", omittingEmptySubsequences: false)
         guard parts.count == 4 else { return false }
         var p: [Int] = []

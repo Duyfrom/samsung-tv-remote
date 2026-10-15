@@ -389,7 +389,9 @@ extension TVController: TVToolHost {
                 if isConnected { return "The TV is on." }
                 try await Task.sleep(for: .milliseconds(250))
             }
-            throw TVToolError("The TV didn't wake up.")
+            throw TVToolError(WakeFix.isInstalled(host: host, mac: mac)
+                ? "The TV didn't wake up."
+                : "The TV didn't wake up. After a long time off it only accepts a wake packet sent straight to it: turn on Wake from long standby in TV Remote's settings.")
         }
         guard isConnected else { return "The TV is already off." }
         togglePower()

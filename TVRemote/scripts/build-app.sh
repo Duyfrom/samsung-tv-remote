@@ -21,7 +21,12 @@ cp "$BIN/tvctl" build/tvctl
 codesign --force --sign - --timestamp=none "$APP/Contents/MacOS/tvmcp"
 codesign --force --sign - --timestamp=none "$APP"
 codesign --force --sign - --timestamp=none build/tvctl
-echo "Built $APP and build/tvctl"
+# Release file for the in-app updater: the zipped app and its checksum.
+v=$(/usr/libexec/PlistBuddy -c "Print CFBundleShortVersionString" Support/Info.plist)
+rm -f build/TV-Remote-mac-*.zip*
+ditto -c -k --keepParent "$APP" "build/TV-Remote-mac-$v.zip"
+(cd build && shasum -a 256 "TV-Remote-mac-$v.zip" > "TV-Remote-mac-$v.zip.sha256")
+echo "Built $APP, build/tvctl and build/TV-Remote-mac-$v.zip"
 
 if [[ "${1:-}" == "--install" ]]; then
   pkill -x TVRemote 2>/dev/null || true

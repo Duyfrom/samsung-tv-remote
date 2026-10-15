@@ -15,8 +15,10 @@ browser or runtime is bundled. (v1 was Electron: a 106 MB installer, 374 MB inst
 2. Not code-signed: SmartScreen says *"Windows protected your PC"* → **More info → Run anyway**.
 3. Allow it through Windows Firewall on private networks. It finds the TV itself (or pick it in ⚙ Settings).
 4. **Upgrading from 1.0.0 (Electron):** just run the new installer. It replaces the old app in place, removes its
-   ~370 MB runtime and its *Apps & features* entry, and keeps your TV, settings and shortcuts. There's no
-   auto-update: newer versions are installed the same way.
+   ~370 MB runtime and its *Apps & features* entry, and keeps your TV, settings and shortcuts.
+6. **Updates:** ⚙ Settings → **Check for updates** downloads the newest `windows-v*` release, checks it against its
+   published `.sha256`, installs it silently and restarts the app. (Until the installer is signed or cleared by
+   Microsoft, Defender may remove the download; the app then says so.)
 5. On the TV: *Settings › General › External Device Manager › Device Connection Manager* → **Access Notification Off**,
    so the TV doesn't ask to Allow every connection.
 
@@ -48,7 +50,8 @@ claude mcp add tv-remote -s user -- "%LOCALAPPDATA%\Programs\TV Remote\TV Remote
 ## Build
 
 ```bash
-./build.sh            # go test, then dist/TV Remote.exe + dist/TV-Remote-Setup-<version>.exe (needs Go + makensis)
+./build.sh            # go test, then dist/: installer + portable exe + their .sha256 (needs Go + makensis)
+                      # release: bump version_ (main.go), installer.nsi, winres.json; tag windows-vX.Y.Z with those 4 files
 go test ./...         # unit tests + a fake TV (websocket/REST/UPnP) + a fake Claude API
 TVREMOTE_LIVE=1 go test -run TestLive -v .               # drive the real TV (TVREMOTE_LIVE_CHAT=1 adds Claude)
 build/make-icons.sh   # only when the icon or version changes: build/*.ico + rsrc_windows_amd64.syso
@@ -71,6 +74,10 @@ ui/            the remote's HTML/CSS/JS (bridge.js talks to Go)
 - REST app launch says "ok" for native apps (Web Browser) without opening them — launches go over the websocket.
 - YouTube videos launch through DIAL (`POST :8080/ws/app/YouTube`, `v=<id>`); this TV then shows "Who's watching?",
   which `play_youtube` answers with OK on the first profile.
+- After ~20 minutes off, the TV ignores broadcast wake packets and only wakes on one sent straight to its MAC, which
+  needs the computer to still know the TV's address – and it forgets it once the TV stops answering. **Wake from long
+  standby** (Settings) pins it: a persistent Windows neighbor entry, added once with a UAC prompt. Keep *Power On with Mobile* on in the TV's network settings
+  (it keeps the TV on Wi-Fi while off).
 - After `KEY_POWER` the TV keeps its network up ~25 s: the power button sends the key in that window and Wake-on-LAN
   after it, from every network adapter.
 

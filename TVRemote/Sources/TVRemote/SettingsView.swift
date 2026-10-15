@@ -5,6 +5,12 @@ struct SettingsView: View {
     @EnvironmentObject private var tv: TVController
     var done: () -> Void
     @State private var hostDraft = ""
+    @State private var wakeFix = false
+    @State private var wakeFixBusy = false
+    @State private var wakeFixError: String?
+    @State private var update: Updates.Update?
+    @State private var updateNote = ""
+    @State private var updating = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -51,10 +57,28 @@ struct SettingsView: View {
                 Text("Filled in automatically from the TV. ⏻ sends a Wake-on-LAN packet when the TV is off.")
                     .font(.caption).foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
+                Toggle("Wake from long standby", isOn: Binding(get: { wakeFix }, set: setWakeFix))
+                    .disabled(wakeFixBusy || tv.host.isEmpty || tv.mac.isEmpty)
+                Text("After about 20 minutes off, this TV only wakes on a packet sent straight to it, so the Mac has to keep its address. Turning this on pins it (asks for your admin password once).")
+                    .font(.caption).foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                if let wakeFixError {
+                    Text(wakeFixError).font(.caption).foregroundStyle(.red)
+                }
             }
 
             section("App") {
                 Toggle("Open at login", isOn: Binding(get: { tv.launchAtLogin }, set: { tv.launchAtLogin = $0 }))
+                HStack(spacing: 6) {
+                    Button("Check for updates", action: checkForUpdates).disabled(updating)
+                    if let update {
+                        Button("Update to \(update.version)", action: installUpdate).disabled(updating)
+                    }
+                }
+                .controlSize(.small)
+                Text(updateNote.isEmpty ? "Version \(Updater.current ?? "dev")" : updateNote)
+                    .font(.caption).foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
 
             section("Claude") {
@@ -87,6 +111,7 @@ struct SettingsView: View {
             .controlSize(.small)
         }
         .onAppear {
+            wakeFix = WakeFix.isInstalled(host: tv.host, mac: tv.mac)
             hostDraft = tv.host
             if tv.discovered.isEmpty { tv.scan() }
         }
@@ -95,6 +120,57 @@ struct SettingsView: View {
     static var mcpCommand: String {
         let tvmcp = Bundle.main.bundleURL.appendingPathComponent("Contents/MacOS/tvmcp").path
         return "claude mcp add tv-remote -s user -- \"\(tvmcp)\""
+    }
+
+    private func checkForUpdates() {
+        updating = true
+        update = nil
+        updateNote = "Checking…"
+        Task {
+            do {
+                update = try await Updater.check()
+                updateNote = update.map { "Version \($0.version) is available (you have \(Updater.current ?? "?"))." }
+                    ?? "You're up to date (\(Updater.current ?? "?"))."
+            } catch {
+                updateNote = "Couldn't check: \(error.localizedDescription)"
+            }
+            updating = false
+        }
+    }
+
+    private func installUpdate() {
+        guard let update else { return }
+        updating = true
+        updateNote = "Downloading and checking the update… TV Remote restarts when it's installed."
+        Task {
+            do {
+                try await Updater.install(update)
+            } catch {
+                updateNote = "Update failed: \(error.localizedDescription)"
+                updating = false
+            }
+        }
+    }
+
+    private func setWakeFix(_ on: Bool) {
+        let host = tv.host, mac = tv.mac
+        wakeFixBusy = true
+        wakeFixError = nil
+        Task.detached {
+            let failure: String?
+            do {
+                if on { try WakeFix.install(host: host, mac: mac) } else { try WakeFix.uninstall(host: host) }
+                failure = nil
+            } catch {
+                failure = error.localizedDescription
+            }
+            let installed = WakeFix.isInstalled(host: host, mac: mac)
+            await MainActor.run {
+                wakeFix = installed
+                wakeFixError = failure == "Cancelled." ? nil : failure
+                wakeFixBusy = false
+            }
+        }
     }
 
     private func applyHost() {

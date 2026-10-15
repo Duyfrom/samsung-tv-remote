@@ -2,7 +2,7 @@
 Unicode true
 SetCompressor /SOLID lzma
 !define NAME "TV Remote"
-!define VERSION "2.0.1"
+!define VERSION "2.0.2"
 !define UNINSTALL_KEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\TVRemote"
 
 Name "${NAME}"
@@ -91,6 +91,8 @@ Section
   WriteRegDWORD HKCU "${UNINSTALL_KEY}" "NoModify" 1
   WriteRegDWORD HKCU "${UNINSTALL_KEY}" "NoRepair" 1
   WriteRegDWORD HKCU "${UNINSTALL_KEY}" "EstimatedSize" 8000
+  IfSilent 0 +2 ; the in-app updater runs this with /S: start the new version again
+    Exec '"$INSTDIR\TV Remote.exe"'
 SectionEnd
 
 Section "Uninstall"

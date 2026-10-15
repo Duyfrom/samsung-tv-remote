@@ -642,6 +642,41 @@ func wake(mac, host string) (int, error) {
 	return sent, nil
 }
 
+// After ~20 minutes off, this TV only wakes on a magic packet sent straight to its MAC (it ignores broadcasts).
+// That needs the PC to still know the TV's address, which it forgets once the TV stops answering – so
+// "Wake from long standby" pins it. pinCommand builds the (elevated) netsh command line; it only ever embeds a
+// canonical local IPv4 address, a parsed MAC and an interface number.
+func pinCommand(pin bool, ifIndex int, host, mac string) (string, error) {
+	if !isLocalAddress(host) {
+		return "", fmt.Errorf("%q is not a local IPv4 address", host)
+	}
+	hw, err := net.ParseMAC(strings.ReplaceAll(mac, "-", ":"))
+	if err != nil || len(hw) != 6 {
+		return "", fmt.Errorf("%q is not a MAC address", mac)
+	}
+	unpin := fmt.Sprintf("netsh interface ipv4 delete neighbors interface=%d address=%s", ifIndex, host)
+	if !pin {
+		return unpin, nil
+	}
+	return fmt.Sprintf("%s & netsh interface ipv4 add neighbors interface=%d address=%s neighbor=%s store=persistent",
+		unpin, ifIndex, host, strings.ReplaceAll(hw.String(), ":", "-")), nil
+}
+
+// interfaceFor is the index of the network adapter on the TV's subnet.
+func interfaceFor(host string) (int, error) {
+	ip := net.ParseIP(host)
+	ifaces, _ := net.Interfaces()
+	for _, ifc := range ifaces {
+		addrs, _ := ifc.Addrs()
+		for _, a := range addrs {
+			if n, ok := a.(*net.IPNet); ok && n.Contains(ip) {
+				return ifc.Index, nil
+			}
+		}
+	}
+	return 0, fmt.Errorf("no network adapter is on the TV's network (%s)", host)
+}
+
 var macRe = regexp.MustCompile(`(?i)\b([0-9a-f]{1,2}(?:[:-][0-9a-f]{1,2}){5})\b`)
 
 // parseArp reads the MAC for host from `arp -a <ip>` (Windows: f8-77-…) or `arp -n` (macOS: 8:0:…).

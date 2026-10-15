@@ -11,19 +11,25 @@ import (
 )
 
 type platform struct {
-	SavedKey     func() string     // decrypted key saved in this app, or ""
-	SaveKey      func(string) error // nil: saving keys unsupported
-	LoginItem    func() bool
-	SetLoginItem func(bool) error // nil: unsupported
-	Quit         func()
-	Resize       func(cssHeight float64)
-	MCPCommand   string
+	SavedKey      func() string      // decrypted key saved in this app, or ""
+	SaveKey       func(string) error // nil: saving keys unsupported
+	LoginItem     func() bool
+	SetLoginItem  func(bool) error // nil: unsupported
+	Quit          func()
+	Resize        func(cssHeight float64)
+	WakeFix       func() bool      // "Wake from long standby" is on for the current TV
+	SetWakeFix    func(bool) error // nil: unsupported
+	UpdatePrefix  string           // release tag prefix ("windows-v"); "" disables updates
+	UpdateAsset   func(version string) string
+	InstallUpdate func(*update) error // downloads, verifies and starts the new version, then quits
+	MCPCommand    string
 }
 
 type core struct {
-	tv   *Controller
-	chat *Chat
-	p    platform
+	tv      *Controller
+	chat    *Chat
+	p       platform
+	pending *update // found by checkUpdate, installed by installUpdate
 }
 
 func newCore(p platform) *core {
@@ -39,7 +45,9 @@ func (a *core) savedKey() string {
 	return a.p.SavedKey()
 }
 
-func iconURL(png []byte) string { return "data:image/png;base64," + base64.StdEncoding.EncodeToString(png) }
+func iconURL(png []byte) string {
+	return "data:image/png;base64," + base64.StdEncoding.EncodeToString(png)
+}
 
 func (a *core) extras() map[string]any {
 	_, source := resolveAPIKey(a.savedKey())
@@ -54,6 +62,7 @@ func (a *core) extras() map[string]any {
 	return map[string]any{
 		"model": chatModel, "keySource": src, "keyEncryptable": a.p.SaveKey != nil, "mcpCommand": a.p.MCPCommand,
 		"packaged": a.p.SetLoginItem != nil, "openAtLogin": login, "platform": runtime.GOOS, "version": version_,
+		"wakeFix": a.p.WakeFix != nil && a.p.WakeFix(), "wakeFixSupported": a.p.SetWakeFix != nil,
 	}
 }
 
@@ -125,6 +134,29 @@ func (a *core) call(method string, args []any) (any, error) {
 			}
 		}
 		return a.extras(), nil
+	case "setWakeFix":
+		if a.p.SetWakeFix == nil {
+			return nil, errors.New("not supported here")
+		}
+		if err := a.p.SetWakeFix(len(args) > 0 && args[0] == true); err != nil {
+			return nil, err
+		}
+		return a.extras(), nil
+	case "checkUpdate":
+		if a.p.UpdatePrefix == "" {
+			return nil, errors.New("updates aren't available in this build")
+		}
+		u, err := checkForUpdate(a.p.UpdatePrefix, version_, a.p.UpdateAsset)
+		if err != nil {
+			return nil, err
+		}
+		a.pending = u
+		return map[string]any{"current": version_, "update": u}, nil
+	case "installUpdate":
+		if a.pending == nil || a.p.InstallUpdate == nil {
+			return nil, errors.New("check for updates first")
+		}
+		return nil, a.p.InstallUpdate(a.pending)
 	case "saveApiKey":
 		if a.p.SaveKey == nil {
 			return nil, errors.New("saving a key isn't supported here")

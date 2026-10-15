@@ -209,6 +209,68 @@ func TestIsLocalAddress(t *testing.T) {
 	}
 }
 
+func TestUpdates(t *testing.T) {
+	for _, c := range []struct {
+		a, b string
+		want bool
+	}{{"2.0.2", "2.0.1", true}, {"2.0.10", "2.0.9", true}, {"2.1", "2.0.9", true}, {"2.0.1", "2.0.1", false}, {"1.9.9", "2.0.0", false}} {
+		if newer(c.a, c.b) != c.want {
+			t.Errorf("newer(%s, %s) != %v", c.a, c.b, c.want)
+		}
+	}
+	var releases []release
+	_ = json.Unmarshal([]byte(`[
+	 {"tag_name":"mac-v9.0.0","assets":[{"name":"TV-Remote-mac-9.0.0.zip","browser_download_url":"m"}]},
+	 {"tag_name":"windows-v3.0.0","draft":true,"assets":[]},
+	 {"tag_name":"windows-v2.1.0","prerelease":true,"assets":[]},
+	 {"tag_name":"windows-v2.0.3","html_url":"p3","assets":[{"name":"TV-Remote-Setup-2.0.3.exe","browser_download_url":"u3"},{"name":"TV-Remote-Setup-2.0.3.exe.sha256","browser_download_url":"s3"}]},
+	 {"tag_name":"windows-v2.0.4","assets":[{"name":"TV-Remote-Setup-2.0.4.exe","browser_download_url":"u4"}]},
+	 {"tag_name":"windows-v2.0.1","assets":[]}]`), &releases)
+	name := func(v string) string { return "TV-Remote-Setup-" + v + ".exe" }
+	u := pickUpdate(releases, "windows-v", "2.0.2", name)
+	if u == nil || u.Version != "2.0.3" || u.asset != "u3" || u.checksum != "s3" || u.Page != "p3" {
+		t.Fatalf("picked %+v (2.0.4 has no checksum, 2.1.0 is a prerelease, 3.0.0 a draft)", u)
+	}
+	if pickUpdate(releases, "windows-v", "2.0.3", name) != nil {
+		t.Error("no update expected at 2.0.3")
+	}
+
+	file := filepath.Join(t.TempDir(), "x.exe")
+	_ = os.WriteFile(file, []byte("hello"), 0o644)
+	if err := verifySHA256(file, []byte("2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824  x.exe\n")); err != nil {
+		t.Error(err)
+	}
+	if verifySHA256(file, []byte("0000  x.exe")) == nil || verifySHA256(file, nil) == nil {
+		t.Error("bad checksum accepted")
+	}
+}
+
+func TestPinCommand(t *testing.T) {
+	got, err := pinCommand(true, 7, "192.168.50.25", "F8:77:B8:BF:DF:BB")
+	want := "netsh interface ipv4 delete neighbors interface=7 address=192.168.50.25 & netsh interface ipv4 add neighbors interface=7 address=192.168.50.25 neighbor=f8-77-b8-bf-df-bb store=persistent"
+	if err != nil || got != want {
+		t.Fatalf("pin:\n got %q %v\nwant %q", got, err, want)
+	}
+	if got, _ := pinCommand(false, 7, "192.168.50.25", "f8-77-b8-bf-df-bb"); got != "netsh interface ipv4 delete neighbors interface=7 address=192.168.50.25" {
+		t.Errorf("unpin %q", got)
+	}
+	// It runs elevated: anything but a canonical local IPv4 and a real MAC is refused.
+	for _, c := range [][2]string{{"192.168.50.25 & calc", "f8:77:b8:bf:df:bb"}, {"8.8.8.8", "f8:77:b8:bf:df:bb"},
+		{"192.168.50.25", "f8:77:b8:bf:df:bb & calc"}, {"010.1.1.1", "f8:77:b8:bf:df:bb"}, {"192.168.50.25", "f8:77:b8:bf:df"}} {
+		if s, err := pinCommand(true, 7, c[0], c[1]); err == nil {
+			t.Errorf("accepted %q %q → %q", c[0], c[1], s)
+		}
+	}
+	if own := localIPv4(); len(own) > 0 {
+		if _, err := interfaceFor(own[0].IP.String()); err != nil {
+			t.Error(err)
+		}
+	}
+	if _, err := interfaceFor("203.0.113.9"); err == nil {
+		t.Error("found an adapter for an outside address")
+	}
+}
+
 func TestToolsAndHelpers(t *testing.T) {
 	if len(tools) != 14 || len(toolList("input_schema")) != 14 || toolList("inputSchema")[0]["inputSchema"] == nil {
 		t.Fatal("tool list")
@@ -238,10 +300,10 @@ func TestToolsAndHelpers(t *testing.T) {
 // errHost fails every connection: validation must reject bad input before touching the TV.
 type errHost struct{}
 
-func (errHost) ResolvedHost() (string, error)    { return "192.0.2.1", nil }
-func (errHost) ReadyChannel() (*Channel, error)  { return nil, io.ErrUnexpectedEOF }
-func (errHost) InstalledApps() ([]App, error)    { return nil, io.ErrUnexpectedEOF }
-func (errHost) SetPower(bool) (string, error)    { return "", io.ErrUnexpectedEOF }
+func (errHost) ResolvedHost() (string, error)   { return "192.0.2.1", nil }
+func (errHost) ReadyChannel() (*Channel, error) { return nil, io.ErrUnexpectedEOF }
+func (errHost) InstalledApps() ([]App, error)   { return nil, io.ErrUnexpectedEOF }
+func (errHost) SetPower(bool) (string, error)   { return "", io.ErrUnexpectedEOF }
 
 func TestRunToolValidation(t *testing.T) {
 	isolate(t)

@@ -137,8 +137,11 @@ func (s *session) SetPower(on bool) (string, error) {
 		}
 		time.Sleep(time.Second)
 	}
-	return "", errors.New("The TV did not wake up.")
+	return "", errors.New(noWakeHint)
 }
+
+const noWakeHint = "The TV didn't wake up. After a long time off it only accepts a wake packet sent straight to it: " +
+	"turn on Wake from long standby in TV Remote's settings (and keep Power On with Mobile on in the TV's network settings)."
 
 const mcpInstructions = "Controls the user's Samsung UA49K5500 TV (2016 Tizen) on the local network. The screen can't be seen: " +
 	"prefer launch_app, play_youtube, open_url and saved shortcuts over blind menu navigation, and check list_shortcuts " +
@@ -148,7 +151,9 @@ const mcpInstructions = "Controls the user's Samsung UA49K5500 TV (2016 Tizen) o
 // serveMCP handles one request at a time (the TV needs key presses in order) until in closes.
 func serveMCP(in io.Reader, out io.Writer, host ToolHost) {
 	enc := json.NewEncoder(out) // Encode writes one line per message
-	reply := func(id json.RawMessage, result any) { _ = enc.Encode(map[string]any{"jsonrpc": "2.0", "id": id, "result": result}) }
+	reply := func(id json.RawMessage, result any) {
+		_ = enc.Encode(map[string]any{"jsonrpc": "2.0", "id": id, "result": result})
+	}
 	fail := func(id json.RawMessage, code int, msg string) {
 		_ = enc.Encode(map[string]any{"jsonrpc": "2.0", "id": id, "error": map[string]any{"code": code, "message": msg}})
 	}

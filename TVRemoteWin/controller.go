@@ -687,6 +687,13 @@ func (c *Controller) SetHost(host, mac string) {
 	c.Connect()
 }
 
+// HostMac is the selected TV's address and MAC.
+func (c *Controller) HostMac() (string, string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.host, c.mac
+}
+
 func (c *Controller) SetMac(mac string) {
 	mac = strings.TrimSpace(mac)
 	c.mu.Lock()
@@ -779,7 +786,7 @@ func (c *Controller) SetPower(on bool) (string, error) {
 				return "The TV is on.", nil
 			}
 		}
-		return "", errors.New("The TV didn't wake up.")
+		return "", errors.New(noWakeHint)
 	}
 	if !connected {
 		return "The TV is already off.", nil

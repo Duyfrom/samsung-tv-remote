@@ -51,6 +51,17 @@ public enum WakeOnLAN {
         if !sent { throw WakeOnLANError.socket(errno) }
     }
 
+    /// After ~20 minutes off, this TV only wakes on a magic packet sent straight to its MAC (it ignores
+    /// broadcasts), which needs the Mac to still know the TV's address – and macOS forgets it about 20 minutes
+    /// after the TV goes quiet. `pinScript` is the root command that pins it; nil unless host is a canonical
+    /// local IPv4 address and mac a plain MAC, since it is run with administrator rights.
+    public static func pinScript(host: String, mac: String) -> String? {
+        let mac = mac.lowercased().replacingOccurrences(of: "-", with: ":")
+        guard RemoteChannel.isLocalAddress(host),
+              mac.range(of: "^[0-9a-f]{2}(:[0-9a-f]{2}){5}$", options: .regularExpression) != nil else { return nil }
+        return "/usr/sbin/arp -n \(host) | /usr/bin/grep -q permanent || /usr/sbin/arp -s \(host) \(mac)"
+    }
+
     /// MAC of a host from the system ARP cache (populated by any recent traffic to it).
     public static func macAddress(for host: String) -> String? {
         let p = Process()
