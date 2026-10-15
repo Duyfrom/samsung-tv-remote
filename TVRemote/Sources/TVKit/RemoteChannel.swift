@@ -102,6 +102,12 @@ public final class RemoteChannel: NSObject, URLSessionWebSocketDelegate, @unchec
     /// Opens the socket and waits for `ms.channel.connect`. Returns the (possibly new) token.
     @discardableResult
     public func connect() async throws -> String? {
+        // Samsung TVs present a self-signed certificate on :8002, so there is no CA chain to validate and the
+        // connection is not authenticated. That is only acceptable (and the token only safe to send) on the
+        // local network, so refuse it for anything else.
+        if transport == .secure, !Self.isLocalAddress(host) {
+            throw ChannelError.closed("Refusing an unverified TLS connection to a non-local address.")
+        }
         disconnect()
         let task = session.webSocketTask(with: url)
         task.maximumMessageSize = 4 * 1024 * 1024
@@ -111,6 +117,14 @@ public final class RemoteChannel: NSObject, URLSessionWebSocketDelegate, @unchec
         return try await withCheckedThrowingContinuation { cont in
             queue.sync { self.connectContinuation = cont }
         }
+    }
+
+    /// RFC 1918, link-local and loopback IPv4 addresses.
+    static func isLocalAddress(_ host: String) -> Bool {
+        let p = host.split(separator: ".").compactMap { Int($0) }
+        guard p.count == 4, p.allSatisfy({ (0...255).contains($0) }) else { return false }
+        return p[0] == 10 || p[0] == 127 || (p[0] == 172 && (16...31).contains(p[1]))
+            || (p[0] == 192 && p[1] == 168) || (p[0] == 169 && p[1] == 254)
     }
 
     public func disconnect() {

@@ -18,6 +18,13 @@ const { TVError } = require('./errors');
  */
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/**
+ * Text that comes from outside (video titles, channel and app names) is handed to the model as data:
+ * flattened to one line and bounded, so it can't smuggle in fake structure or long instructions.
+ */
+const plain = (value, max = 100) => String(value ?? '').replace(/[\u0000-\u001f\u007f-\u009f]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, max);
+
 const object = (properties = {}, required = []) => ({ type: 'object', properties, required });
 
 const TOOLS = [
@@ -142,7 +149,7 @@ function findApp(query, apps) {
 async function launch(query, link, host) {
   const apps = await host.installedApps();
   const app = findApp(query, apps);
-  if (!app) throw new TVError(`No app matches “${query}”. Installed: ${apps.map((a) => a.name).join(', ')}`);
+  if (!app) throw new TVError(`No app matches “${plain(query, 60)}”. Installed: ${apps.map((a) => plain(a.name, 60)).join(', ')}`);
   (await host.readyChannel()).launchApp(app.id, app.appType, link || '');
   return link ? `Opened ${app.name} with link ${link}.` : `Opened ${app.name}.`;
 }
@@ -216,7 +223,7 @@ async function perform(name, input, host) {
       return `Typed “${input.text}”.`;
     }
     case 'list_apps':
-      return (await host.installedApps()).map((a) => `${a.name} (${a.id})`).join('\n');
+      return (await host.installedApps()).map((a) => `${plain(a.name, 60)} (${plain(a.id, 60)})`).join('\n');
     case 'launch_app':
       if (typeof input.app !== 'string') throw new TVError('Which app?');
       return launch(input.app, typeof input.link === 'string' ? input.link : '', host);
@@ -227,7 +234,7 @@ async function perform(name, input, host) {
       if (!id && typeof input.channel === 'string' && input.channel) {
         const video = await youtube.latestVideo(input.channel);
         id = video.id;
-        playing = `“${video.title}” by ${video.channel} (${video.published}) `;
+        playing = `“${plain(video.title)}” by ${plain(video.channel, 60)} (${plain(video.published, 10)}) `;
       }
       if (!id) throw new TVError('Give `video` (an id or URL) or `channel` (an @handle).');
       try { await rest.info(address, { timeout: 2000 }); } catch { throw new TVError('The TV is off. Turn it on first.'); }
@@ -244,8 +251,11 @@ async function perform(name, input, host) {
       let url = String(input.url || '').trim();
       if (!url) throw new TVError('Which URL?');
       if (!url.includes('://')) url = `https://${url}`;
-      (await host.readyChannel()).openURL(url);
-      return `Opened ${url} in the TV's Web Browser.`;
+      let parsed;
+      try { parsed = new URL(url); } catch { throw new TVError(`“${plain(url, 60)}” is not a valid URL.`); }
+      if (!['http:', 'https:'].includes(parsed.protocol)) throw new TVError('Only http and https links can be opened.');
+      (await host.readyChannel()).openURL(parsed.href);
+      return `Opened ${parsed.href} in the TV's Web Browser.`;
     }
     case 'set_volume': {
       const rc = new RenderingControl(await host.resolvedHost());

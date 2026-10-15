@@ -136,7 +136,7 @@ public enum TVTools {
 
         case "list_apps":
             let apps = try await host.installedApps()
-            return apps.map { "\($0.name) (\($0.id))" }.joined(separator: "\n")
+            return apps.map { "\(plain($0.name, max: 60)) (\(plain($0.id, max: 60)))" }.joined(separator: "\n")
 
         case "launch_app":
             guard let query = input["app"] as? String else { throw TVToolError("Which app?") }
@@ -149,7 +149,7 @@ public enum TVTools {
             if id == nil, let channel = input["channel"] as? String, !channel.isEmpty {
                 let video = try await YouTube.latestVideo(channel: channel)
                 id = video.id
-                playing = "“\(video.title)” by \(video.channel) (\(video.published)) "
+                playing = "“\(plain(video.title))” by \(plain(video.channel, max: 60)) (\(plain(video.published, max: 10))) "
             }
             guard let id else { throw TVToolError("Give `video` (an id or URL) or `channel` (an @handle).") }
             guard (try? await TVRestClient(host: address, timeout: 2).info()) != nil else {
@@ -169,8 +169,11 @@ public enum TVTools {
                 throw TVToolError("Which URL?")
             }
             if !url.contains("://") { url = "https://" + url }
-            try await host.readyChannel().openURL(url)
-            return "Opened \(url) in the TV's Web Browser."
+            guard let parsed = URL(string: url), ["http", "https"].contains(parsed.scheme?.lowercased() ?? "") else {
+                throw TVToolError("Only http and https links can be opened.")
+            }
+            try await host.readyChannel().openURL(parsed.absoluteString)
+            return "Opened \(parsed.absoluteString) in the TV's Web Browser."
 
         case "set_volume":
             let rc = RenderingControl(host: try await host.resolvedHost())
@@ -238,6 +241,13 @@ public enum TVTools {
 
     // MARK: - Helpers
 
+    /// Text from outside (video titles, channel and app names) is handed to the model as data:
+    /// flattened to one line and bounded, so it can't smuggle in fake structure or long instructions.
+    static func plain(_ value: String, max: Int = 100) -> String {
+        let flat = value.unicodeScalars.map { $0.properties.generalCategory == .control ? " " : String($0) }.joined()
+        return String(flat.split(whereSeparator: { $0.isWhitespace }).joined(separator: " ").prefix(max))
+    }
+
     public static func runShortcut(_ shortcut: Shortcut, on host: TVToolHost) async throws {
         for step in shortcut.steps {
             switch step.action {
@@ -260,7 +270,8 @@ public enum TVTools {
     private static func launch(_ query: String, link: String? = nil, on host: TVToolHost) async throws -> String {
         let apps = try await host.installedApps()
         guard let app = findApp(query, in: apps) else {
-            throw TVToolError("No app matches “\(query)”. Installed: " + apps.map(\.name).joined(separator: ", "))
+            throw TVToolError("No app matches “\(plain(query, max: 60))”. Installed: "
+                              + apps.map { plain($0.name, max: 60) }.joined(separator: ", "))
         }
         try await host.readyChannel().launchApp(app.id, appType: app.appType, metaTag: link ?? "")
         return link == nil ? "Opened \(app.name)." : "Opened \(app.name) with link \(link!)."

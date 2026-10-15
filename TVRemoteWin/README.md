@@ -81,6 +81,16 @@ src/mcp       MCP server (stdio) on src/core
   Wake-on-LAN after it. Wake packets go out of **every** network adapter (Wi-Fi, Ethernet, VPN, virtual switches).
 - Compact layout is used automatically on screens shorter than ~790 px (1080p laptops at 150% scaling).
 
+## Security notes
+
+- Claude only ever gets the TV tools (keys, apps, volume, power, URLs, shortcuts). Text coming back from the internet
+  (video titles, channel names) is flattened and length-capped before the model sees it, the instructions tell the
+  model to treat it as data, and `open_url` accepts only `http(s)` links.
+- Token-based TVs (2017+) use `wss://:8002` with a self-signed certificate, so that connection is encrypted but not
+  authenticated; the app refuses to make it to anything but a local-network address. The UA49K5500 uses plain
+  `ws://:8001` and never takes that path. Use token TVs on a network you trust.
+- The API key is read from opencode's file or the system keystore at call time and only ever sent to `api.anthropic.com`.
+
 ## Status
 
 Everything except the installer wrapper was exercised against the real UA49K5500 from macOS (same Electron app and

@@ -3,6 +3,14 @@
 const { EventEmitter } = require('node:events');
 const WebSocket = require('ws');
 
+/** RFC 1918, link-local and loopback IPv4 addresses: the only hosts we will talk unverified TLS to. */
+function isLocalAddress(host) {
+  const m = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(host);
+  if (!m) return false;
+  const [a, b] = [Number(m[1]), Number(m[2])];
+  return a === 10 || a === 127 || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168) || (a === 169 && b === 254);
+}
+
 class ChannelError extends Error {
   constructor(kind, message) {
     super(message);
@@ -52,7 +60,13 @@ class RemoteChannel extends EventEmitter {
   connect() {
     this.disconnect();
     return new Promise((resolve, reject) => {
-      // The TV self-signs its :8002 certificate and we only ever talk to the one host the user picked.
+      // Samsung TVs present a self-signed certificate on :8002, so there is no CA chain to validate and the
+      // connection is not authenticated. That is only acceptable (and the token only safe to send) on the
+      // local network, so refuse it for anything else.
+      if (this.transport === 'secure' && !isLocalAddress(this.host)) {
+        reject(new ChannelError('insecure', 'Refusing an unverified TLS connection to a non-local address. Use the TV\'s LAN IP.'));
+        return;
+      }
       const ws = new WebSocket(this.url, { rejectUnauthorized: false, handshakeTimeout: 10_000, perMessageDeflate: false });
       this.ws = ws;
       // The TV waits ~30 s for someone to press Allow on the first connection.
@@ -185,4 +199,4 @@ class RemoteChannel extends EventEmitter {
   }
 }
 
-module.exports = { RemoteChannel, ChannelError };
+module.exports = { RemoteChannel, ChannelError, isLocalAddress };

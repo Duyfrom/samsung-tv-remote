@@ -5,7 +5,7 @@ const assert = require('node:assert/strict');
 const http = require('node:http');
 const { WebSocketServer } = require('ws');
 
-const { RemoteChannel, ChannelError } = require('../src/core/channel');
+const { RemoteChannel, ChannelError, isLocalAddress } = require('../src/core/channel');
 const rest = require('../src/core/rest');
 const { RenderingControl } = require('../src/core/upnp');
 
@@ -165,4 +165,18 @@ test('rest + upnp against a fake TV', async () => {
   assert.match(soaps[0].body, /<DesiredVolume>100<\/DesiredVolume>/);
   assert.match(soaps[1].body, /<DesiredMute>0<\/DesiredMute>/);
   await tv.close();
+});
+
+test('channel: unverified TLS (wss :8002 + token) is refused for non-local addresses', async () => {
+  assert.equal(isLocalAddress('192.168.50.25'), true);
+  assert.equal(isLocalAddress('10.0.0.7'), true);
+  assert.equal(isLocalAddress('172.16.4.2'), true);
+  assert.equal(isLocalAddress('172.32.0.1'), false);
+  assert.equal(isLocalAddress('8.8.8.8'), false);
+  assert.equal(isLocalAddress('tv.example.com'), false);
+  const remote = new RemoteChannel({ host: '8.8.8.8', transport: 'secure', token: 'SECRET' });
+  await assert.rejects(remote.connect(), (e) => e instanceof ChannelError && e.kind === 'insecure');
+  // plain ws to a non-local host is a different (unencrypted, tokenless) matter and is not blocked here
+  const lan = new RemoteChannel({ host: '127.0.0.1', transport: 'secure', port: 1 });
+  await assert.rejects(lan.connect(), (e) => !(e instanceof ChannelError && e.kind === 'insecure'));
 });
