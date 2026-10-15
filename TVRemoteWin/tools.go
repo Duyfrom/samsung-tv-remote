@@ -129,6 +129,26 @@ func appNames(apps []App) string {
 	return strings.Join(names, ", ")
 }
 
+// webURL is the one gate for anything the TV's Web Browser will open (open_url, a browser launch link,
+// shortcut steps): http(s) only.
+func webURL(raw string) (string, error) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return "", errors.New("Which URL?")
+	}
+	if !strings.Contains(raw, "://") {
+		raw = "https://" + raw
+	}
+	u, err := url.Parse(raw)
+	if err != nil || u.Host == "" {
+		return "", fmt.Errorf("“%s” is not a valid URL.", plain(raw, 60))
+	}
+	if u.Scheme != "http" && u.Scheme != "https" {
+		return "", errors.New("Only http and https links can be opened.")
+	}
+	return u.String(), nil
+}
+
 func launch(query, link string, host ToolHost) (string, error) {
 	apps, err := host.InstalledApps()
 	if err != nil {
@@ -137,6 +157,11 @@ func launch(query, link string, host ToolHost) (string, error) {
 	app := findApp(query, apps)
 	if app == nil {
 		return "", fmt.Errorf("No app matches “%s”. Installed: %s", plain(query, 60), appNames(apps))
+	}
+	if app.ID == "org.tizen.browser" && link != "" { // the browser's launch data is a URL
+		if link, err = webURL(link); err != nil {
+			return "", err
+		}
 	}
 	ch, err := host.ReadyChannel()
 	if err != nil {
@@ -172,7 +197,11 @@ func runShortcut(sc Shortcut, host ToolHost) error {
 				ch.SendText(st.Value)
 				sleep(0.5)
 			default:
-				ch.OpenURL(st.Value)
+				u, err := webURL(st.Value) // shortcuts are a file anyone can edit
+				if err != nil {
+					return err
+				}
+				ch.OpenURL(u)
 			}
 		default:
 			return fmt.Errorf("unknown shortcut step “%s”", st.Action)
@@ -327,26 +356,16 @@ func perform(name string, in map[string]any, host ToolHost) (string, error) {
 		return fmt.Sprintf("Playing %shttps://youtu.be/%s.%s", playing, id, note), nil
 
 	case "open_url":
-		raw := strings.TrimSpace(str("url"))
-		if raw == "" {
-			return "", errors.New("Which URL?")
-		}
-		if !strings.Contains(raw, "://") {
-			raw = "https://" + raw
-		}
-		u, err := url.Parse(raw)
-		if err != nil || u.Host == "" {
-			return "", fmt.Errorf("“%s” is not a valid URL.", plain(raw, 60))
-		}
-		if u.Scheme != "http" && u.Scheme != "https" {
-			return "", errors.New("Only http and https links can be opened.")
+		u, err := webURL(str("url"))
+		if err != nil {
+			return "", err
 		}
 		ch, err := host.ReadyChannel()
 		if err != nil {
 			return "", err
 		}
-		ch.OpenURL(u.String())
-		return "Opened " + u.String() + " in the TV's Web Browser.", nil
+		ch.OpenURL(u)
+		return "Opened " + u + " in the TV's Web Browser.", nil
 
 	case "set_volume":
 		address, err := host.ResolvedHost()
@@ -448,6 +467,13 @@ func perform(name string, in map[string]any, host ToolHost) (string, error) {
 			value := ""
 			if v, ok := st["value"]; ok && v != nil {
 				value = fmt.Sprint(v)
+			}
+			if action == "open_url" {
+				u, err := webURL(value)
+				if err != nil {
+					return "", err
+				}
+				value = u
 			}
 			steps = append(steps, Step{action, value})
 		}

@@ -252,7 +252,10 @@ func TestRunToolValidation(t *testing.T) {
 		{"open_url", map[string]any{"url": "  "}}, {"open_url", map[string]any{"url": "javascript:alert(1)"}}, {"open_url", map[string]any{"url": "file:///etc/passwd"}},
 		{"mute", map[string]any{"muted": "yes"}}, {"power", map[string]any{"state": "maybe"}}, {"play_youtube", nil},
 		{"run_shortcut", map[string]any{"name": "nope"}}, {"save_shortcut", map[string]any{"name": "x", "steps": []any{}}},
-		{"save_shortcut", map[string]any{"name": "x", "steps": []any{map[string]any{"action": "explode", "value": "1"}}}}, {"bogus", nil}} {
+		{"save_shortcut", map[string]any{"name": "x", "steps": []any{map[string]any{"action": "explode", "value": "1"}}}}, {"bogus", nil},
+		// Every way into the TV browser takes http(s) only.
+		{"save_shortcut", map[string]any{"name": "x", "steps": []any{map[string]any{"action": "open_url", "value": "javascript:alert(1)"}}}},
+		{"save_shortcut", map[string]any{"name": "x", "steps": []any{map[string]any{"action": "open_url", "value": "file:///etc/passwd"}}}}} {
 		if text, isErr := runTool(c.name, c.in, errHost{}); !isErr || text == "" {
 			t.Errorf("%s %v: want error, got %q", c.name, c.in, text)
 		}
@@ -402,6 +405,14 @@ func TestControllerAndToolsAgainstFakeTV(t *testing.T) {
 	if text, _ := runTool("launch_app", map[string]any{"app": "browser"}, c); text != "Opened Web Browser." {
 		t.Fatal(text)
 	}
+	if text, isErr := runTool("launch_app", map[string]any{"app": "browser", "link": "javascript:alert(1)"}, c); !isErr {
+		t.Fatalf("browser launch with a javascript: link went through: %s", text)
+	}
+	_ = saveShortcut(Shortcut{"Bad", []Step{{"open_url", "file:///c:/secret"}}}) // hand-edited file
+	if text, isErr := runTool("run_shortcut", map[string]any{"name": "Bad"}, c); !isErr {
+		t.Fatalf("shortcut opened a file: URL: %s", text)
+	}
+	_ = deleteShortcut("Bad")
 	if text, _ := runTool("get_status", nil, c); !strings.Contains(text, "Volume 13, muted.") || !strings.Contains(text, "In front: YouTube.") {
 		t.Fatal(text)
 	}

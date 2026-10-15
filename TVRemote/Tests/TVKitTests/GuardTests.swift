@@ -32,6 +32,13 @@ final class GuardTests: XCTestCase {
         XCTAssertTrue(RemoteChannel(host: "192.168.0.5", transport: .secure, token: "SECRET").url.absoluteString.hasSuffix("&token=SECRET"))
     }
 
+    func testOnlyWebLinksReachTheBrowser() throws {
+        XCTAssertEqual(try TVTools.webURL("phimfly.com/tv"), "https://phimfly.com/tv")
+        for bad in ["javascript:alert(1)", "file:///etc/passwd", "intent://x#Intent;end", "", "  "] {
+            XCTAssertThrowsError(try TVTools.webURL(bad), bad)
+        }
+    }
+
     func testToolHelpers() {
         XCTAssertEqual(TVKey.code(for: "volumeUp"), "KEY_VOLUP")
         XCTAssertEqual(TVKey.code(for: "ok"), "KEY_ENTER")

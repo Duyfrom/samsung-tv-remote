@@ -80,4 +80,7 @@ without launching (WS launch); a pending connect continuation leaked on reconnec
 - [x] UI + bridge.js rendered in Chromium against the Go core and the real TV (status, 29 icons, chat, settings)
 - [x] Single exe 8.1 MB (icon, PerMonitorV2 manifest, version info); NSIS installer 2.7 MB; `mcp` arg = MCP server
 - [ ] User: run on a Windows PC — the window/tray/WebView2 layer is the only part not executed here
+- [x] 2.0.1: one http(s) gate for every path into the TV browser (open_url, browser launch link, shortcut
+      open_url steps at save and run) in Go and Swift; installer upgrades v1 in place (removes its Electron runtime,
+      its "TV Remote 1.0.0" uninstall entry and Chromium profile; keeps settings/shortcuts)
 

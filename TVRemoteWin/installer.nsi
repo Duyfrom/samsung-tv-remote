@@ -2,7 +2,7 @@
 Unicode true
 SetCompressor /SOLID lzma
 !define NAME "TV Remote"
-!define VERSION "2.0.0"
+!define VERSION "2.0.1"
 !define UNINSTALL_KEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\TVRemote"
 
 Name "${NAME}"
@@ -17,6 +17,22 @@ VIAddVersionKey "CompanyName" "Khuong Duy Pham"
 VIAddVersionKey "LegalCopyright" "Copyright © 2026 Khuong Duy Pham"
 
 !include "MUI2.nsh"
+
+!macro RemoveChromiumProfile
+  RMDir /r "$APPDATA\${NAME}\Cache"
+  RMDir /r "$APPDATA\${NAME}\Code Cache"
+  RMDir /r "$APPDATA\${NAME}\GPUCache"
+  RMDir /r "$APPDATA\${NAME}\DawnGraphiteCache"
+  RMDir /r "$APPDATA\${NAME}\DawnWebGPUCache"
+  RMDir /r "$APPDATA\${NAME}\Local Storage"
+  RMDir /r "$APPDATA\${NAME}\Session Storage"
+  RMDir /r "$APPDATA\${NAME}\Shared Dictionary"
+  RMDir /r "$APPDATA\${NAME}\blob_storage"
+  RMDir /r "$APPDATA\${NAME}\Network"
+  RMDir /r "$APPDATA\${NAME}\Crashpad"
+  Delete "$APPDATA\${NAME}\Preferences"
+  Delete "$APPDATA\${NAME}\Local State"
+!macroend
 !define MUI_ICON "build\icon.ico"
 !define MUI_UNICON "build\icon.ico"
 !define MUI_FINISHPAGE_RUN "$INSTDIR\TV Remote.exe"
@@ -26,9 +42,42 @@ VIAddVersionKey "LegalCopyright" "Copyright © 2026 Khuong Duy Pham"
 !insertmacro MUI_UNPAGE_INSTFILES
 !insertmacro MUI_LANGUAGE "English"
 
+; v1 (Electron) installed into this same folder as "TV Remote 1.0.0": drop its uninstall entry so Apps & features
+; shows one TV Remote (and the old uninstaller can't delete the new exe).
+Function RemoveV1Entry
+  StrCpy $0 0
+  loop:
+    EnumRegKey $1 HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall" $0
+    StrCmp $1 "" done
+    StrCmp $1 "TVRemote" next
+    ReadRegStr $2 HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\$1" "DisplayName"
+    ReadRegStr $3 HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\$1" "Publisher"
+    StrCpy $2 $2 9
+    StrCmp "$2|$3" "TV Remote|Khuong Duy Pham" 0 next
+    DeleteRegKey HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\$1"
+    Goto loop ; the next key now has this index
+  next:
+    IntOp $0 $0 + 1
+    Goto loop
+  done:
+FunctionEnd
+
 Section
-  nsExec::Exec 'taskkill /IM "TV Remote.exe" /F' ; an upgrade replaces a running copy
-  Sleep 300
+  nsExec::Exec 'taskkill /IM "TV Remote.exe" /F' ; an upgrade replaces a running copy (v1 used the same exe name)
+  Sleep 500
+  ; v1's Electron runtime (~370 MB) and uninstaller; this app is the single exe
+  RMDir /r "$INSTDIR\resources"
+  RMDir /r "$INSTDIR\locales"
+  Delete "$INSTDIR\*.pak"
+  Delete "$INSTDIR\*.dll"
+  Delete "$INSTDIR\*.bin"
+  Delete "$INSTDIR\*.dat"
+  Delete "$INSTDIR\LICENSE*"
+  Delete "$INSTDIR\vk_swiftshader_icd.json"
+  Delete "$INSTDIR\Uninstall TV Remote.exe"
+  Call RemoveV1Entry
+  ; v1 kept a Chromium profile next to settings.json/shortcuts.json (those stay)
+  !insertmacro RemoveChromiumProfile
   SetOutPath "$INSTDIR"
   File "dist\TV Remote.exe"
   WriteUninstaller "$INSTDIR\Uninstall.exe"

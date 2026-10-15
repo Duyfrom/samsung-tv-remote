@@ -10,11 +10,14 @@ browser or runtime is bundled. (v1 was Electron: a 106 MB installer, 374 MB inst
 
 ## Install (Windows 10/11, 64-bit)
 
-1. Download **`TV-Remote-Setup-2.0.0.exe`** from *Releases* and run it — per user, no admin rights, adds Start menu and
-   desktop shortcuts. Or just run the portable **`TV-Remote-2.0.0-portable.exe`** (the same app, one file).
+1. Download **`TV-Remote-Setup-2.0.1.exe`** from *Releases* and run it — per user, no admin rights, adds Start menu and
+   desktop shortcuts. Or just run the portable **`TV-Remote-2.0.1-portable.exe`** (the same app, one file).
 2. Not code-signed: SmartScreen says *"Windows protected your PC"* → **More info → Run anyway**.
 3. Allow it through Windows Firewall on private networks. It finds the TV itself (or pick it in ⚙ Settings).
-4. On the TV: *Settings › General › External Device Manager › Device Connection Manager* → **Access Notification Off**,
+4. **Upgrading from 1.0.0 (Electron):** just run the new installer. It replaces the old app in place, removes its
+   ~370 MB runtime and its *Apps & features* entry, and keeps your TV, settings and shortcuts. There's no
+   auto-update: newer versions are installed the same way.
+5. On the TV: *Settings › General › External Device Manager › Device Connection Manager* → **Access Notification Off**,
    so the TV doesn't ask to Allow every connection.
 
 Closing the window keeps it in the tray (click: show/hide; right-click: *Turn TV on/off*, *Quit*). Needs the WebView2

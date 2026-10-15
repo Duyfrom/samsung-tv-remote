@@ -165,15 +165,9 @@ public enum TVTools {
             return "Playing \(playing)https://youtu.be/\(id).\(note)"
 
         case "open_url":
-            guard var url = (input["url"] as? String)?.trimmingCharacters(in: .whitespaces), !url.isEmpty else {
-                throw TVToolError("Which URL?")
-            }
-            if !url.contains("://") { url = "https://" + url }
-            guard let parsed = URL(string: url), ["http", "https"].contains(parsed.scheme?.lowercased() ?? "") else {
-                throw TVToolError("Only http and https links can be opened.")
-            }
-            try await host.readyChannel().openURL(parsed.absoluteString)
-            return "Opened \(parsed.absoluteString) in the TV's Web Browser."
+            let url = try webURL(input["url"] as? String ?? "")
+            try await host.readyChannel().openURL(url)
+            return "Opened \(url) in the TV's Web Browser."
 
         case "set_volume":
             let rc = RenderingControl(host: try await host.resolvedHost())
@@ -229,7 +223,7 @@ public enum TVTools {
                     throw TVToolError("Unknown step action \(step["action"] ?? "nil").")
                 }
                 let value = step["value"] as? String ?? (step["value"].map { "\($0)" } ?? "")
-                return Shortcut.Step(action, value)
+                return Shortcut.Step(action, action == .openURL ? try webURL(value) : value)
             }
             try ShortcutStore.save(Shortcut(name: name, steps: steps))
             return "Saved shortcut “\(name)” (\(steps.count) steps)."
@@ -240,6 +234,19 @@ public enum TVTools {
     }
 
     // MARK: - Helpers
+
+    /// The one gate for anything the TV's Web Browser will open (open_url, a browser launch link,
+    /// shortcut steps): http(s) only.
+    nonisolated static func webURL(_ raw: String) throws -> String {
+        var url = raw.trimmingCharacters(in: .whitespaces)
+        guard !url.isEmpty else { throw TVToolError("Which URL?") }
+        if !url.contains("://") { url = "https://" + url }
+        guard let parsed = URL(string: url), ["http", "https"].contains(parsed.scheme?.lowercased() ?? ""),
+              parsed.host?.isEmpty == false else {
+            throw TVToolError("Only http and https links can be opened.")
+        }
+        return parsed.absoluteString
+    }
 
     /// Text from outside (video titles, channel and app names) is handed to the model as data:
     /// flattened to one line and bounded, so it can't smuggle in fake structure or long instructions.
@@ -260,7 +267,7 @@ public enum TVTools {
             case .launchApp:
                 _ = try await launch(step.value, on: host)
             case .openURL:
-                try await host.readyChannel().openURL(step.value)
+                try await host.readyChannel().openURL(webURL(step.value)) // shortcuts are a file anyone can edit
             case .wait:
                 try await Task.sleep(for: .seconds(min(20, max(0, Double(step.value) ?? 1))))
             }
@@ -273,7 +280,9 @@ public enum TVTools {
             throw TVToolError("No app matches “\(plain(query, max: 60))”. Installed: "
                               + apps.map { plain($0.name, max: 60) }.joined(separator: ", "))
         }
-        try await host.readyChannel().launchApp(app.id, appType: app.appType, metaTag: link ?? "")
+        // The browser's launch data is a URL: same gate as open_url.
+        let meta = app.id == "org.tizen.browser" && !(link ?? "").isEmpty ? try webURL(link!) : (link ?? "")
+        try await host.readyChannel().launchApp(app.id, appType: app.appType, metaTag: meta)
         return link == nil ? "Opened \(app.name)." : "Opened \(app.name) with link \(link!)."
     }
 
