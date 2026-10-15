@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src data:">
+  <meta name="color-scheme" content="dark light">
+  <title>TV Remote</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<svg class="sprite" width="0" height="0" aria-hidden="true">
+  <defs>
+    <symbol id="i-power" viewBox="0 0 24 24"><path d="M12 3v9"/><path d="M6.3 6.8a8 8 0 1 0 11.4 0"/></symbol>
+    <symbol id="i-gear" viewBox="0 0 24 24"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></symbol>
+    <symbol id="i-close" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol>
+    <symbol id="i-up" viewBox="0 0 24 24"><path d="M6 15l6-6 6 6"/></symbol>
+    <symbol id="i-down" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></symbol>
+    <symbol id="i-left" viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></symbol>
+    <symbol id="i-right" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+    <symbol id="i-minus" viewBox="0 0 24 24"><path d="M5 12h14"/></symbol>
+    <symbol id="i-back" viewBox="0 0 24 24"><path d="M9 14L4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></symbol>
+    <symbol id="i-home" viewBox="0 0 24 24"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h5v-6h4v6h5V10"/></symbol>
+    <symbol id="i-exit" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M9 9l6 6M15 9l-6 6"/></symbol>
+    <symbol id="i-source" viewBox="0 0 24 24"><path d="M3 12h12M11 7l5 5-5 5"/><path d="M20 4v16"/></symbol>
+    <symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/></symbol>
+    <symbol id="i-guide" viewBox="0 0 24 24"><rect x="3.5" y="4.5" width="17" height="15" rx="2.5"/><path d="M7.5 9h9M7.5 12.5h9M7.5 16h5"/></symbol>
+    <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5h.01"/></symbol>
+    <symbol id="i-speaker" viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M16.5 9a4 4 0 0 1 0 6M19 6.5a8 8 0 0 1 0 11"/></symbol>
+    <symbol id="i-speaker-off" viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M17 9.5l5 5M22 9.5l-5 5"/></symbol>
+    <symbol id="i-list" viewBox="0 0 24 24"><path d="M9 6h11M9 12h11M9 18h11M4.5 6h.01M4.5 12h.01M4.5 18h.01"/></symbol>
+    <symbol id="i-rewind" viewBox="0 0 24 24"><path d="M11 6.5v11L3.5 12zM20.5 6.5v11L13 12z" fill="currentColor"/></symbol>
+    <symbol id="i-play" viewBox="0 0 24 24"><path d="M7 4.5v15l12-7.5z" fill="currentColor"/></symbol>
+    <symbol id="i-pause" viewBox="0 0 24 24"><path d="M8 5v14M16 5v14" stroke-width="3.2"/></symbol>
+    <symbol id="i-stop" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="1.5" fill="currentColor"/></symbol>
+    <symbol id="i-forward" viewBox="0 0 24 24"><path d="M13 6.5v11l7.5-5.5zM3.5 6.5v11L11 12z" fill="currentColor"/></symbol>
+    <symbol id="i-record" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="3.5" fill="currentColor"/></symbol>
+    <symbol id="i-send" viewBox="0 0 24 24"><path d="M12 18V7M7 11.5l5-5 5 5" stroke-width="2.4"/></symbol>
+    <symbol id="i-bolt" viewBox="0 0 24 24"><path d="M13 2.5L5 13.5h6l-1 8 8-11h-6z" fill="currentColor"/></symbol>
+    <symbol id="i-action" viewBox="0 0 24 24"><path d="M3 12h4l3-7 4 14 3-7h4"/></symbol>
+    <symbol id="i-warn" viewBox="0 0 24 24"><path d="M12 3.5L2.5 20h19z"/><path d="M12 10v5M12 17.5h.01"/></symbol>
+    <symbol id="i-cursor" viewBox="0 0 24 24"><path d="M5 3l14 7-6 2-2 6z"/></symbol>
+  </defs>
+</svg>
+
+<main id="app">
+  <header class="header">
+    <span id="status-dot" class="dot"></span>
+    <div class="titles">
+      <div id="tv-name" class="name">Samsung TV</div>
+      <div id="tv-sub" class="sub"></div>
+    </div>
+    <button id="open-settings" class="round" title="Settings" aria-label="Settings"><svg class="ic"><use href="#i-gear"/></svg></button>
+    <button id="power" class="round power" title="Turn the TV on or off" aria-label="Power"><svg class="ic"><use href="#i-power"/></svg></button>
+  </header>
+
+  <section id="remote">
+    <div id="controls">
+      <div class="row r4">
+        <button class="key lbl" data-key="source"><svg class="ic"><use href="#i-source"/></svg><span>Source</span></button>
+        <button class="key lbl" data-key="menu"><svg class="ic"><use href="#i-menu"/></svg><span>Menu</span></button>
+        <button class="key lbl" data-key="guide"><svg class="ic"><use href="#i-guide"/></svg><span>Guide</span></button>
+        <button class="key lbl" data-key="info"><svg class="ic"><use href="#i-info"/></svg><span>Info</span></button>
+      </div>
+
+      <div class="pad">
+        <div class="rocker">
+          <button class="key flat" data-key="volumeUp" aria-label="Volume up"><svg class="ic"><use href="#i-plus"/></svg></button>
+          <button class="key flat mid" data-key="mute" aria-label="Mute"><svg id="mute-icon" class="ic sm"><use href="#i-speaker"/></svg><span>VOL</span></button>
+          <button class="key flat" data-key="volumeDown" aria-label="Volume down"><svg class="ic"><use href="#i-minus"/></svg></button>
+        </div>
+        <div class="dpad">
+          <button class="key flat a-up" data-key="up" aria-label="Up"><svg class="ic"><use href="#i-up"/></svg></button>
+          <button class="key flat a-left" data-key="left" aria-label="Left"><svg class="ic"><use href="#i-left"/></svg></button>
+          <button class="key flat a-right" data-key="right" aria-label="Right"><svg class="ic"><use href="#i-right"/></svg></button>
+          <button class="key flat a-down" data-key="down" aria-label="Down"><svg class="ic"><use href="#i-down"/></svg></button>
+          <button class="key ok" data-key="enter" aria-label="OK">OK</button>
+        </div>
+        <div class="rocker">
+          <button class="key flat" data-key="channelUp" aria-label="Channel up"><svg class="ic"><use href="#i-up"/></svg></button>
+          <button class="key flat mid" data-key="channelList" aria-label="Channel list"><svg class="ic sm"><use href="#i-list"/></svg><span>CH</span></button>
+          <button class="key flat" data-key="channelDown" aria-label="Channel down"><svg class="ic"><use href="#i-down"/></svg></button>
+        </div>
+      </div>
+
+      <div class="row r3">
+        <button class="key lbl" data-key="back"><svg class="ic"><use href="#i-back"/></svg><span>Back</span></button>
+        <button class="key lbl" data-key="home"><svg class="ic"><use href="#i-home"/></svg><span>Home</span></button>
+        <button class="key lbl" data-key="exit"><svg class="ic"><use href="#i-exit"/></svg><span>Exit</span></button>
+      </div>
+
+      <div class="volume">
+        <button id="mute-btn" class="icon-only" data-key="mute" aria-label="Mute"><svg id="mute-icon-2" class="ic sm"><use href="#i-speaker"/></svg></button>
+        <input id="volume" type="range" min="0" max="100" step="1" value="0" aria-label="Volume">
+        <span id="volume-value" class="vol-num">0</span>
+      </div>
+
+      <div class="row r5">
+        <button class="key" data-key="rewind" aria-label="Rewind"><svg class="ic sm"><use href="#i-rewind"/></svg></button>
+        <button class="key" data-key="play" aria-label="Play"><svg class="ic sm"><use href="#i-play"/></svg></button>
+        <button class="key" data-key="pause" aria-label="Pause"><svg class="ic sm"><use href="#i-pause"/></svg></button>
+        <button class="key" data-key="stop" aria-label="Stop"><svg class="ic sm"><use href="#i-stop"/></svg></button>
+        <button class="key" data-key="fastForward" aria-label="Fast forward"><svg class="ic sm"><use href="#i-forward"/></svg></button>
+      </div>
+
+      <div class="tabs" role="tablist">
+        <button class="tab active" data-tab="apps" role="tab">Apps</button>
+        <button class="tab" data-tab="numbers" role="tab">Numbers</button>
+        <button class="tab" data-tab="type" role="tab">Type</button>
+      </div>
+
+      <div id="panel-apps" class="panel"><div id="apps-grid" class="apps-grid"></div></div>
+
+      <div id="panel-numbers" class="panel hidden">
+        <div class="numgrid">
+          <button class="key num" data-key="num1">1</button><button class="key num" data-key="num2">2</button><button class="key num" data-key="num3">3</button>
+          <button class="key num" data-key="num4">4</button><button class="key num" data-key="num5">5</button><button class="key num" data-key="num6">6</button>
+          <button class="key num" data-key="num7">7</button><button class="key num" data-key="num8">8</button><button class="key num" data-key="num9">9</button>
+          <button class="key num" data-key="minus">–</button><button class="key num" data-key="num0">0</button><button class="key num small" data-key="previousChannel">PRE-CH</button>
+        </div>
+        <div class="colors">
+          <button class="key color red" data-key="red">A</button><button class="key color green" data-key="green">B</button>
+          <button class="key color yellow" data-key="yellow">C</button><button class="key color blue" data-key="blue">D</button>
+        </div>
+      </div>
+
+      <div id="panel-type" class="panel hidden">
+        <form id="type-form" class="type-row">
+          <input id="type-input" type="text" placeholder="Type, then Enter to send" autocomplete="off" spellcheck="false">
+          <button type="submit" class="small-btn">Send</button>
+        </form>
+        <div id="touchpad" class="touchpad">
+          <svg class="ic"><use href="#i-cursor"/></svg>
+          <span id="touchpad-hint">Touchpad works in the TV's Web Browser</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="settings" class="hidden">
+    <h3>TV</h3>
+    <div class="field-row">
+      <input id="host-input" type="text" placeholder="IP address" spellcheck="false">
+      <button id="scan-btn" class="small-btn">Scan</button>
+    </div>
+    <div id="found" class="found"></div>
+
+    <h3>Power on</h3>
+    <input id="mac-input" type="text" placeholder="TV MAC address (for Wake-on-LAN)" spellcheck="false">
+    <p class="note">Filled in automatically from the TV. The power button sends a Wake-on-LAN packet when the TV is off.</p>
+
+    <h3>App</h3>
+    <label class="toggle"><input id="login-toggle" type="checkbox"><span>Open at login</span></label>
+    <p id="login-note" class="note hidden">Available in the installed app.</p>
+
+    <h3>Claude</h3>
+    <div class="kv"><span>Chat model</span><b id="model-name"></b></div>
+    <div class="kv"><span>API key</span><b id="key-source"></b></div>
+    <div class="field-row">
+      <input id="key-input" type="password" placeholder="Paste an API key to save it here" autocomplete="off" spellcheck="false">
+      <button id="key-save" class="small-btn">Save</button>
+    </div>
+    <p class="note">The key is read from opencode's settings when it has one. A key saved here is encrypted with the system keystore.</p>
+    <div class="note">MCP server for Claude Code / Desktop:</div>
+    <pre id="mcp-cmd" class="code"></pre>
+    <button id="mcp-copy" class="small-btn">Copy command</button>
+
+    <h3>Device</h3>
+    <div id="device"></div>
+
+    <div class="settings-foot">
+      <button id="reconnect" class="small-btn">Reconnect</button>
+      <button id="quit" class="small-btn">Quit TV Remote</button>
+    </div>
+  </section>
+
+  <footer id="chatbar" class="chatbar">
+    <div id="transcript" class="transcript hidden">
+      <button id="chat-clear" class="clear" title="Clear the conversation" aria-label="Clear"><svg class="ic xs"><use href="#i-close"/></svg></button>
+      <div id="lines"></div>
+    </div>
+    <div id="recorder" class="recorder hidden">
+      <span class="rec-dot"></span><span id="rec-count">0 steps</span>
+      <input id="rec-name" type="text" placeholder="Name, e.g. VTV1" autocomplete="off" spellcheck="false">
+      <button id="rec-save" class="small-btn">Save</button>
+      <button id="rec-cancel" class="small-btn" aria-label="Discard">✕</button>
+    </div>
+    <div id="chips" class="chips hidden"></div>
+    <form id="chat-form" class="chat-row">
+      <button id="rec-btn" type="button" class="round sm" title="Record a shortcut: press it, use the remote, then name it" aria-label="Record a shortcut"><svg class="ic sm"><use href="#i-record"/></svg></button>
+      <input id="chat-input" type="text" placeholder="Ask Claude…  “mở FPT Play”" autocomplete="off" spellcheck="false">
+      <button id="chat-send" type="submit" class="send" title="Send to Claude" aria-label="Send"><svg class="ic sm"><use href="#i-send"/></svg></button>
+      <span id="chat-busy" class="spinner hidden"></span>
+    </form>
+  </footer>
+</main>
+<script src="app.js"></script>
+</body>
+</html>

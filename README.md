@@ -2,7 +2,9 @@
 
 Reverse engineering a 2016 Samsung Tizen TV (UA49K5500) and controlling it from macOS.
 
-- **[TVRemote/](TVRemote/)** — the menu bar app (`TV Remote.app`) and `tvctl` CLI, Swift. Start here.
+- **[TVRemote/](TVRemote/)** — the macOS menu bar app (`TV Remote.app`), `tvctl` CLI and `tvmcp` MCP server, Swift.
+- **[TVRemoteWin/](TVRemoteWin/)** — the Windows app (Electron, also runs on macOS/Linux) with the same features
+  and its own MCP server. The installer `.exe` is on the *Releases* page.
 - **evidence/** — [REA](https://github.com/morluto/rea) analysis of Samsung's PC Smart View 2 .NET assemblies
   (MultiscreenWindowsApiCSharp, SmartView2Devices, SmartView2Core, SpcApi): the source of the `ms.channel.*`
   WebSocket protocol, DIAL discovery and the `KEY_*` table.

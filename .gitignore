@@ -6,6 +6,9 @@ tools/
 # Samsung Smart View APK/MSI binaries used for reverse engineering — not redistributed
 apk/
 
+# Electron build output (the installer is published as a GitHub release asset)
+TVRemoteWin/dist/
+
 # Swift build output
 TVRemote/.build/
 TVRemote/build/
