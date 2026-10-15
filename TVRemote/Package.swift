@@ -7,6 +7,7 @@ let package = Package(
     products: [
         .executable(name: "TVRemote", targets: ["TVRemote"]),
         .executable(name: "tvctl", targets: ["tvctl"]),
+        .executable(name: "tvmcp", targets: ["tvmcp"]),
         .library(name: "TVKit", targets: ["TVKit"]),
     ],
     targets: [
@@ -17,5 +18,7 @@ let package = Package(
         .executableTarget(name: "TVRemote", dependencies: ["TVKit"]),
         // Command line client for scripting / debugging the protocol.
         .executableTarget(name: "tvctl", dependencies: ["TVKit"]),
+        // MCP server (stdio) exposing the TV tools to Claude Code / Claude Desktop.
+        .executableTarget(name: "tvmcp", dependencies: ["TVKit"]),
     ]
 )

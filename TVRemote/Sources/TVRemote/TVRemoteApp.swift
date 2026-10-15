@@ -17,15 +17,64 @@ struct TVRemoteApp: App {
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
-        // Menu bar only, also when run straight from `swift run` without the bundle's LSUIElement.
-        NSApp.setActivationPolicy(.accessory)
         #if DEBUG
-        if let path = ProcessInfo.processInfo.environment["TVREMOTE_SNAPSHOT"] { renderSnapshots(to: path) }
-        if ProcessInfo.processInfo.environment["TVREMOTE_SELFTEST"] != nil { selfTest() }
+        if let path = ProcessInfo.processInfo.environment["TVREMOTE_SNAPSHOT"] {
+            NSApp.setActivationPolicy(.accessory)
+            return renderSnapshots(to: path)
+        }
+        if let prompts = ProcessInfo.processInfo.environment["TVREMOTE_CHAT"] {
+            NSApp.setActivationPolicy(.accessory)
+            return chatTest(prompts.components(separatedBy: " || "))
+        }
+        if ProcessInfo.processInfo.environment["TVREMOTE_SELFTEST"] != nil {
+            NSApp.setActivationPolicy(.accessory)
+            return selfTest()
+        }
         #endif
+        // The bundle is a regular app (no LSUIElement) so that opening it from Applications activates it and
+        // the window comes to the front. Started at login it drops to menu-bar only straight away.
+        if launchedAsLoginItem {
+            NSApp.setActivationPolicy(.accessory)
+        } else {
+            MainWindow.shared.show()
+        }
+    }
+
+    /// Double-clicking the app (or its Dock icon) while it is already running.
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        MainWindow.shared.show()
+        return false
+    }
+
+    private var launchedAsLoginItem: Bool {
+        guard let event = NSAppleEventManager.shared().currentAppleEvent,
+              event.eventID == AEEventID(kAEOpenApplication) else { return false }
+        return event.paramDescriptor(forKeyword: AEKeyword(keyAEPropData))?.enumCodeValue == OSType(keyAELaunchedAsLogInItem)
     }
 
     #if DEBUG
+    /// `TVREMOTE_CHAT="first message || second message" swift run TVRemote` sends each message to Claude
+    /// through the chat bar's code path and prints the transcript.
+    @MainActor private func chatTest(_ prompts: [String]) {
+        let tv = TVController.shared, chat = ClaudeChat.shared
+        Task { @MainActor in
+            for _ in 0..<60 where !tv.isConnected { try? await Task.sleep(for: .milliseconds(250)) }
+            var printed = 0
+            for prompt in prompts {
+                let start = Date()
+                chat.send(prompt)
+                try? await Task.sleep(for: .milliseconds(100))
+                while chat.isBusy { try? await Task.sleep(for: .milliseconds(100)) }
+                for line in chat.lines[printed...] {
+                    FileHandle.standardError.write(Data("[\(line.kind)] \(line.text)\n".utf8))
+                }
+                printed = chat.lines.count
+                FileHandle.standardError.write(Data(String(format: "   (%.1fs)\n", Date().timeIntervalSince(start)).utf8))
+            }
+            exit(0)
+        }
+    }
+
     /// `TVREMOTE_SELFTEST=1 swift run TVRemote` drives the controller against the real TV;
     /// `TVREMOTE_SELFTEST=power` also switches the TV off and back on (shutdown-window and Wake-on-LAN paths).
     @MainActor private func selfTest() {
@@ -81,6 +130,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let tv = TVController.shared
         Task { @MainActor in
             try? await Task.sleep(for: .seconds(6)) // connect, load apps and icons
+            if let message = ProcessInfo.processInfo.environment["TVREMOTE_SNAPSHOT_CHAT"] {
+                ClaudeChat.shared.send(message)
+                try? await Task.sleep(for: .milliseconds(100))
+                while ClaudeChat.shared.isBusy { try? await Task.sleep(for: .milliseconds(100)) }
+            }
             FileHandle.standardError.write(Data("snapshot: status=\(tv.status) apps=\(tv.apps.count) icons=\(tv.icons.count)\n".utf8))
             for tab in RemoteView.Tab.allCases {
                 let root = RemoteView(initialTab: tab).environmentObject(tv)

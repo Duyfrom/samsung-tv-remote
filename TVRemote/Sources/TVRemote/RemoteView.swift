@@ -9,11 +9,17 @@ struct RemoteView: View {
 
     enum Tab: String, CaseIterable { case apps = "Apps", numbers = "Numbers", type = "Type" }
 
-    init(initialTab: Tab = .apps) { _tab = State(initialValue: initialTab) }
+    /// `true` when shown in `MainWindow` rather than the menu bar popover.
+    var inWindow = false
+
+    init(initialTab: Tab = .apps, inWindow: Bool = false) {
+        _tab = State(initialValue: initialTab)
+        self.inWindow = inWindow
+    }
 
     var body: some View {
         VStack(spacing: 12) {
-            Header(showSettings: $showSettings)
+            Header(showSettings: $showSettings, inWindow: inWindow)
             if showSettings || tv.status == .noTV {
                 SettingsView(done: { showSettings = false })
             } else {
@@ -33,9 +39,8 @@ struct RemoteView: View {
                 .disabled(!tv.isConnected)
                 .opacity(tv.isConnected ? 1 : 0.4)
                 .animation(.easeOut(duration: 0.2), value: tv.isConnected)
-                Text("Keys: arrows · ⏎ OK · ⌫ Back · +/− vol · M · H")
-                    .font(.caption2)
-                    .foregroundStyle(.tertiary)
+                // Outside the disabled group: "turn on the TV" has to work while it's off.
+                ChatBar()
             }
         }
         .padding(14)
@@ -52,6 +57,8 @@ struct RemoteView: View {
 
     private func handleKey(_ press: KeyPress) -> KeyPress.Result {
         guard tv.isConnected, !showSettings else { return .ignored }
+        // Typing in the chat or text fields must not drive the TV.
+        if NSApp.keyWindow?.firstResponder is NSText { return .ignored }
         let key: TVKey?
         switch press.key {
         case .upArrow: key = .up
@@ -81,6 +88,7 @@ struct RemoteView: View {
 private struct Header: View {
     @EnvironmentObject private var tv: TVController
     @Binding var showSettings: Bool
+    let inWindow: Bool
 
     var body: some View {
         HStack(spacing: 10) {
@@ -98,6 +106,14 @@ private struct Header: View {
                     .lineLimit(2)
             }
             Spacer(minLength: 4)
+            if !inWindow {
+                Button { MainWindow.shared.show() } label: {
+                    Image(systemName: "macwindow")
+                        .frame(width: 28, height: 28)
+                }
+                .buttonStyle(KeyStyle(shape: .circle))
+                .help("Open in a window")
+            }
             Button { showSettings.toggle() } label: {
                 Image(systemName: showSettings ? "xmark" : "gearshape")
                     .frame(width: 28, height: 28)
@@ -325,7 +341,7 @@ private struct AppsGrid: View {
                 }
             }
         }
-        .frame(height: 168)
+        .frame(height: 148)
     }
 }
 
@@ -370,7 +386,7 @@ private struct NumberPad: View {
                 colorKey(.blue, .blue, "D")
             }
         }
-        .frame(height: 168, alignment: .top)
+        .frame(height: 148, alignment: .top)
     }
 
     private func digit(_ n: Int) -> some View { textKey(.number(n), "\(n)") }
@@ -442,7 +458,7 @@ private struct TypePanel: View {
                     }
             )
         }
-        .frame(height: 168)
+        .frame(height: 148)
     }
 }
 

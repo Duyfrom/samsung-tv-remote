@@ -94,7 +94,8 @@ public final class RemoteChannel: NSObject, URLSessionWebSocketDelegate, @unchec
         let name = Data(appName.utf8).base64EncodedString()
             .addingPercentEncoding(withAllowedCharacters: .alphanumerics) ?? ""
         var s = "\(transport.scheme)://\(host):\(transport.port)/api/v2/channels/samsung.remote.control?name=\(name)"
-        if let token, !token.isEmpty { s += "&token=\(token)" }
+        // The token is a credential: only ever send it over the TLS transport.
+        if transport == .secure, let token, !token.isEmpty { s += "&token=\(token)" }
         return URL(string: s)!
     }
 
@@ -181,6 +182,11 @@ public final class RemoteChannel: NSObject, URLSessionWebSocketDelegate, @unchec
     /// Asks the TV for the PNG behind `InstalledApp.icon`; answered with `.icon`.
     public func requestIcon(_ path: String) {
         send(["method": "ms.channel.emit", "params": ["event": "ed.apps.icon", "to": "host", "data": ["iconPath": path]]])
+    }
+
+    /// Opens a web page in the TV's Web Browser (the browser takes the URL as launch data).
+    public func openURL(_ url: String) {
+        launchApp("org.tizen.browser", appType: 4, metaTag: url)
     }
 
     /// Launch over the socket. `appType` 2 = web/DEEP_LINK, 4 = native.

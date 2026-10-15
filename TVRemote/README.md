@@ -13,6 +13,38 @@ scripts/build-app.sh --install  # also copies the app to /Applications and launc
 First launch: macOS asks to let **TV Remote** find devices on the local network — click **Allow**.
 The app scans the Wi-Fi for the TV, remembers it, and connects as **"Mac Remote"**.
 
+Two ways to use it:
+- **Window** — open *TV Remote* from Applications, Launchpad or Spotlight. The remote opens in a window with a
+  Dock icon; close the window and the app keeps running in the menu bar only.
+- **Menu bar** — click the TV icon in the menu bar; the window button in its header opens the window.
+  With *Open at login* (settings) the app starts silently in the menu bar.
+
+## Ask Claude (chat bar)
+
+The bar at the bottom of the remote sends what you type to **Claude Haiku 5.5** (`claude-haiku-5-5`, low effort),
+which acts through the same tools as the MCP server: "mở FPT Play", "volume 20", "go to phimfly.com/tv",
+"turn off the TV". The API key is read when needed from opencode's `~/.local/share/opencode/auth.json`
+(or `$ANTHROPIC_API_KEY`); it is never copied.
+
+The TV's screen can't be seen, so getting *inside* an app (a channel in FPT Play) is blind. **Shortcuts** fix that:
+press **●**, do it once with the remote (open FPT Play, arrows, OK — pauses are kept as waits), name it "VTV1".
+It appears as a chip above the chat, and Claude runs it when you ask for VTV1. Claude can also save a sequence it
+just ran ("save that as VTV1"). Shortcuts live in `~/Library/Application Support/TV Remote/shortcuts.json`.
+
+## MCP server
+
+`tvmcp` (bundled in the app) is a stdio MCP server with the same tools — `press_keys`, `type_text`, `list_apps`,
+`launch_app`, `play_youtube`, `open_url`, `set_volume`, `mute`, `power`, `get_status`, `wait`, `list_shortcuts`, `run_shortcut`,
+`save_shortcut`:
+
+```bash
+claude mcp add tv-remote -s user -- "/Applications/TV Remote.app/Contents/MacOS/tvmcp"
+```
+
+It finds the TV via `$TV_HOST`, the app's saved TV, or a network scan, and connects as "Mac Remote (Claude)".
+
+## TV setting
+
 On the TV, *Settings › General › External Device Manager › Device Connection Manager*:
 set **Access Notification** to Off (or First Time Only) and make sure **Mac Remote** is allowed,
 otherwise the TV asks to Allow on every connection.
@@ -48,6 +80,13 @@ TV_DEBUG=1 tvctl key mute           # print WebSocket traffic
   and cached in `~/Library/Caches/com.khuongduypham.tvremote/icons`.
 - Quick repeat volume keys are dropped while the volume bar animates in — volume ± uses UPnP instead.
 - REST `POST /api/v2/applications/<id>` answers `{"ok":true}` for native apps without opening them.
+- The websocket `DEEP_LINK` launch drops its `metaTag` for YouTube. Videos go through **DIAL** instead:
+  `POST http://TV:8080/ws/app/YouTube` with body `v=<videoId>&t=0` (Application-URL from `:7678/nservice/`).
+  This TV shows "Who's watching?" on every YouTube launch, so `play_youtube` presses OK on the first profile
+  4.5 s later. "Latest video of a channel" is resolved from the channel's public RSS feed, Shorts skipped.
+- `AVTransport` on :9197 only reports DLNA playback (`NO_MEDIA_PRESENT` otherwise) and the channel pushes no state
+  events, so "what's on screen" can't be read from the network; `get_status` reports power, volume, mute and
+  which Smart Hub app is in front.
 - Port 8002 accepts TLS but this firmware never issues a token; plain 8001 is used.
 - After `KEY_POWER` the TV keeps its network up for ~25 s; the app sends the power key in that window and
   Wake-on-LAN after it.
@@ -55,11 +94,16 @@ TV_DEBUG=1 tvctl key mute           # print WebSocket traffic
 ## Layout
 
 - `Sources/TVKit` — protocol: `RemoteChannel` (WebSocket), `TVRestClient`, `RenderingControl` (UPnP),
-  `Discovery` (/24 sweep), `WakeOnLAN`, `TVKey` (codes recovered with REA from Samsung's PC Smart View 2)
-- `Sources/TVRemote` — SwiftUI `MenuBarExtra` app (`TVController` owns the connection)
+  `Discovery` (/24 sweep), `WakeOnLAN`, `TVKey` (codes recovered with REA from Samsung's PC Smart View 2);
+  `TVTools` (tool definitions + executor shared by the chat and MCP) and `Shortcuts`
+- `Sources/tvmcp` — MCP server
+- `Sources/TVRemote` — SwiftUI `MenuBarExtra` app plus `MainWindow` (`TVController` owns the connection),
+  `ClaudeChat` (Messages API tool loop, raw HTTP) and `ChatBar`
+- `Support/` — `Info.plist` and `AppIcon.icns` (regenerate with `scripts/make-icon.sh`)
 - `Sources/tvctl` — CLI
 - Debug builds only: `TVREMOTE_SNAPSHOT=/tmp/shot swift run TVRemote` renders the popover tabs to PNGs;
   `TVREMOTE_SELFTEST=1` (or `=power`, which also switches the TV off and on) drives the controller
-  against the real TV; `TVREMOTE_DEBUG=1` logs WebSocket traffic.
+  against the real TV; `TVREMOTE_CHAT="msg || msg"` sends chat messages and prints the transcript;
+  `TVREMOTE_DEBUG=1` logs WebSocket traffic.
 
 Reverse-engineering evidence (REA output for the Smart View 2 assemblies) is in `../evidence`.

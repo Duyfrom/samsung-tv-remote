@@ -13,6 +13,7 @@ usage: tvctl [--host IP] <command> [args]
   text "string"          type into the TV's on-screen keyboard
   apps                   list installed apps
   launch APP_ID          launch an app
+  url URL                open a web page in the TV's browser
   close APP_ID           close an app
   volume [0-100]         read or set absolute volume
   mute [on|off]          read or set mute
@@ -39,12 +40,6 @@ let rest = Array(args.dropFirst())
 func requireHost() -> String {
     if host.isEmpty { fail("no TV address – pass --host IP or set TV_HOST (try `tvctl discover`)") }
     return host
-}
-
-func resolveKey(_ name: String) -> String {
-    if name.uppercased().hasPrefix("KEY_") { return name.uppercased() }
-    if let key = TVKey.allCases.first(where: { "\($0)".lowercased() == name.lowercased() }) { return key.rawValue }
-    return "KEY_" + name.uppercased()
 }
 
 /// Resumes a continuation exactly once, from whichever of the event or the timeout comes first.
@@ -128,7 +123,7 @@ case "key":
     if rest.isEmpty { fail("which key? e.g. `tvctl key volumeUp`") }
     let channel = await openChannel()
     for name in rest {
-        channel.sendKey(resolveKey(name))
+        channel.sendKey(TVKey.code(for: name))
         await settle()
     }
     await close(channel)
@@ -162,6 +157,12 @@ case "launch":
     }
     let appType = apps?.first(where: { $0.id == id })?.appType ?? (id.contains(".") ? 4 : 2)
     channel.launchApp(id, appType: appType)
+    await close(channel)
+
+case "url":
+    guard let url = rest.first else { fail("which URL?") }
+    let channel = await openChannel()
+    channel.openURL(url.contains("://") ? url : "https://" + url)
     await close(channel)
 
 case "close":

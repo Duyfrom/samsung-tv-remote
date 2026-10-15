@@ -8,6 +8,10 @@
 	<string>TV Remote</string>
 	<key>CFBundleIdentifier</key>
 	<string>com.khuongduypham.tvremote</string>
+	<key>CFBundleIconFile</key>
+	<string>AppIcon</string>
+	<key>LSApplicationCategoryType</key>
+	<string>public.app-category.utilities</string>
 	<key>CFBundleExecutable</key>
 	<string>TVRemote</string>
 	<key>CFBundlePackageType</key>
@@ -18,8 +22,6 @@
 	<string>1</string>
 	<key>LSMinimumSystemVersion</key>
 	<string>14.0</string>
-	<key>LSUIElement</key>
-	<true/>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>TV Remote talks to your Samsung TV on the local network to send remote keys, change volume and launch apps.</string>
 	<key>NSAppTransportSecurity</key>

@@ -3,6 +3,8 @@ import Foundation
 /// `GET http://<tv>:8001/api/v2/` – the Multiscreen device description (`ms.device.getInfo` over HTTP).
 public struct TVInfo: Sendable, Equatable {
     public let name: String
+    /// `Samsung SmartTV` for real TVs.
+    public let type: String?
     public let modelName: String
     /// Platform code, e.g. `16_JAZZL_UHD` – the leading digits are the model year.
     public let model: String?
@@ -20,6 +22,7 @@ public struct TVInfo: Sendable, Equatable {
         let d = json["device"] as? [String: Any] ?? [:]
         name = (d["name"] as? String ?? json["name"] as? String ?? "Samsung TV")
             .replacingOccurrences(of: "[TV] ", with: "")
+        type = d["type"] as? String ?? json["type"] as? String
         modelName = d["modelName"] as? String ?? ""
         model = d["model"] as? String
         wifiMac = (d["wifiMac"] as? String).flatMap { $0.isEmpty ? nil : $0 }

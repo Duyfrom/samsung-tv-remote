@@ -57,6 +57,17 @@ struct SettingsView: View {
                 Toggle("Open at login", isOn: Binding(get: { tv.launchAtLogin }, set: { tv.launchAtLogin = $0 }))
             }
 
+            section("Claude") {
+                row("Chat model", ClaudeChat.model)
+                row("API key", APIKey.source.map { "from \($0)" } ?? "not found")
+                Text("MCP server for Claude Code / Desktop:")
+                    .font(.caption).foregroundStyle(.secondary)
+                Text(Self.mcpCommand)
+                    .font(.system(size: 10, design: .monospaced))
+                    .textSelection(.enabled)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
             if let info = tv.info {
                 section("Device") {
                     row("Model", info.modelName)
@@ -79,6 +90,11 @@ struct SettingsView: View {
             hostDraft = tv.host
             if tv.discovered.isEmpty { tv.scan() }
         }
+    }
+
+    static var mcpCommand: String {
+        let tvmcp = Bundle.main.bundleURL.appendingPathComponent("Contents/MacOS/tvmcp").path
+        return "claude mcp add tv-remote -s user -- \"\(tvmcp)\""
     }
 
     private func applyHost() {

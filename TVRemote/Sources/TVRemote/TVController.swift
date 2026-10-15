@@ -23,6 +23,9 @@ final class TVController: ObservableObject {
     @Published private(set) var discovered: [DiscoveredTV] = []
     @Published private(set) var isScanning = false
     @Published private(set) var pointerAvailable = false
+    /// Steps captured while recording a shortcut; `nil` when not recording.
+    @Published private(set) var recording: [Shortcut.Step]?
+    @Published private(set) var shortcuts: [Shortcut] = ShortcutStore.load()
 
     @Published var host: String { didSet { defaults.set(host, forKey: "host") } }
     @Published var mac: String { didSet { defaults.set(mac, forKey: "mac") } }
@@ -36,6 +39,7 @@ final class TVController: ObservableObject {
     private var volumeTask: Task<Void, Never>?
     /// After we switch the TV off its network stays up for ~25 s; don't mistake that for "on".
     private var offUntil: Date?
+    private var lastRecorded: Date?
     private var iconQueue: [String] = []
     private var iconInFlight: String?
     private var iconTimeout: Task<Void, Never>?
@@ -218,6 +222,7 @@ final class TVController: ObservableObject {
 
     func send(_ key: TVKey) {
         guard isConnected else { return }
+        record(.key, "\(key)")
         switch key {
         case .volumeUp, .volumeDown:
             // Step the absolute UPnP volume instead of sending the key: the TV drops repeat volume keys
@@ -231,6 +236,7 @@ final class TVController: ObservableObject {
 
     func sendText(_ text: String) {
         guard isConnected, !text.isEmpty else { return }
+        record(.text, text)
         channel?.sendText(text)
     }
 
@@ -239,6 +245,7 @@ final class TVController: ObservableObject {
 
     func launch(_ app: InstalledApp) {
         guard isConnected else { return }
+        record(.launchApp, app.id)
         // The REST launch answers "ok" for native apps without opening them, so use the socket.
         channel?.launchApp(app.id, appType: app.appType)
     }
@@ -274,6 +281,44 @@ final class TVController: ObservableObject {
         }
     }
 
+    // MARK: - Shortcut recording
+
+    func startRecording() {
+        recording = []
+        lastRecorded = nil
+    }
+
+    /// Stops recording; saves the steps under `name` unless it is empty.
+    func stopRecording(saveAs name: String) {
+        defer { recording = nil }
+        let name = name.trimmingCharacters(in: .whitespaces)
+        guard let steps = recording, !steps.isEmpty, !name.isEmpty else { return }
+        try? ShortcutStore.save(Shortcut(name: name, steps: steps))
+        reloadShortcuts()
+    }
+
+    func reloadShortcuts() { shortcuts = ShortcutStore.load() }
+
+    func deleteShortcut(_ shortcut: Shortcut) {
+        try? ShortcutStore.delete(shortcut.name)
+        reloadShortcuts()
+    }
+
+    func run(_ shortcut: Shortcut) {
+        Task { try? await TVTools.runShortcut(shortcut, on: self) }
+    }
+
+    /// Pauses longer than 1.5 s become wait steps, so an app gets the time it needed to open on replay.
+    private func record(_ action: Shortcut.Step.Action, _ value: String) {
+        guard recording != nil else { return }
+        if let last = lastRecorded {
+            let gap = Date().timeIntervalSince(last)
+            if gap >= 1.5 { recording?.append(.init(.wait, String(format: "%g", (min(gap, 10) * 2).rounded() / 2))) }
+        }
+        recording?.append(.init(action, value))
+        lastRecorded = Date()
+    }
+
     // MARK: - Discovery / settings
 
     func scan(autoSelect: Bool = false) {
@@ -305,5 +350,49 @@ final class TVController: ObservableObject {
             }
             objectWillChange.send()
         }
+    }
+}
+
+// MARK: - Claude tools
+
+extension TVController: TVToolHost {
+    func resolvedHost() async throws -> String {
+        guard !host.isEmpty else { throw TVToolError("No TV selected yet – pick one in TV Remote's settings.") }
+        return host
+    }
+
+    func readyChannel() async throws -> RemoteChannel {
+        if isConnected, let channel { return channel }
+        connect()
+        for _ in 0..<40 {
+            if isConnected, let channel { return channel }
+            try await Task.sleep(for: .milliseconds(250))
+        }
+        throw TVToolError(status == .off ? "The TV is off. Turn it on first." : "Can't reach the TV at \(host).")
+    }
+
+    func installedApps() async throws -> [InstalledApp] {
+        let channel = try await readyChannel()
+        if apps.isEmpty {
+            channel.requestInstalledApps()
+            for _ in 0..<16 where apps.isEmpty { try await Task.sleep(for: .milliseconds(250)) }
+        }
+        guard !apps.isEmpty else { throw TVToolError("The TV did not send its app list.") }
+        return apps
+    }
+
+    func setPower(on: Bool) async throws -> String {
+        if on {
+            if isConnected { return "The TV is already on." }
+            togglePower()
+            for _ in 0..<180 {
+                if isConnected { return "The TV is on." }
+                try await Task.sleep(for: .milliseconds(250))
+            }
+            throw TVToolError("The TV didn't wake up.")
+        }
+        guard isConnected else { return "The TV is already off." }
+        togglePower()
+        return "The TV is switching off."
     }
 }

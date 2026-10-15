@@ -72,4 +72,18 @@ public enum TVKey: String, CaseIterable, Sendable {
     public static func number(_ n: Int) -> TVKey {
         [.num0, .num1, .num2, .num3, .num4, .num5, .num6, .num7, .num8, .num9][max(0, min(9, n))]
     }
+
+    /// `KEY_*` code for a friendly name (`volumeUp`, `home`, `ok`, `5`) or a raw code (`KEY_VOLUP`).
+    public static func code(for name: String) -> String {
+        let name = name.trimmingCharacters(in: .whitespaces)
+        if name.uppercased().hasPrefix("KEY_") { return name.uppercased() }
+        if let key = allCases.first(where: { "\($0)".caseInsensitiveCompare(name) == .orderedSame }) { return key.rawValue }
+        switch name.lowercased() {
+        case "ok", "select": return TVKey.enter.rawValue
+        case "return": return TVKey.back.rawValue
+        case "vol+", "volume_up": return TVKey.volumeUp.rawValue
+        case "vol-", "volume_down": return TVKey.volumeDown.rawValue
+        default: return "KEY_" + name.uppercased()
+        }
+    }
 }

@@ -18,7 +18,9 @@ public enum Discovery {
         return await withTaskGroup(of: DiscoveredTV?.self) { group in
             for host in hosts {
                 group.addTask {
-                    guard let info = try? await TVRestClient(host: host, timeout: timeout).info() else { return nil }
+                    // Port 8001 is a common dev-server port: only accept devices that say they are Samsung TVs.
+                    guard let info = try? await TVRestClient(host: host, timeout: timeout).info(),
+                          info.type == "Samsung SmartTV" else { return nil }
                     return DiscoveredTV(host: host, name: info.name, modelName: info.modelName, wifiMac: info.wifiMac)
                 }
             }
